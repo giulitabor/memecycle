@@ -1,0 +1,1 @@
+create index if not exists mc_classifications_mint_created_idx on public.mc_classifications(mint, created_at desc);
