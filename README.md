@@ -1,11 +1,11 @@
-# MEMECYCLE Platform — MVP foundation
+# MEMECYCLE Platform
 
-A Vite-based public website and archive explorer for MEMECYCLE. It uses the existing Supabase project only for the dedicated `mc_*` tables.
+A Vite-based public website and Solana token history archive backed by a dedicated Supabase project.
 
 ## Requirements
 - Node.js 20+
 - npm
-- Supabase project URL and publishable key
+- Supabase project URL and publishable key for the browser archive
 
 ## Local development
 ```bash
@@ -21,29 +21,30 @@ npm run build
 npm run preview
 ```
 
-## Vercel deployment
-1. Push this repository to a GitHub repository.
-2. Import it into Vercel as a Vite project.
-3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as build environment variables.
-4. Deploy. The included `vercel.json` configures the Vite build and SPA fallback.
-5. Add a custom domain in Vercel only after confirming domain ownership and DNS access.
+## Environment security
+The browser uses only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Never put a Supabase service-role key, Helius private key, RPC secret or wallet secret in a `VITE_*` variable.
 
-The Supabase publishable key is designed for browser use. Never put a Supabase service-role key, Helius private key, RPC secret or any wallet secret in `VITE_*` variables.
+The scheduled server-side discovery runner additionally requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` in Vercel Production. These must remain server-only.
 
-## Current MVP scope
-- Public marketing website and product explanation.
-- Search of published MEMECYCLE token records.
-- Classification filters.
-- Community reclamation submission UI.
-- RLS-protected Supabase data access.
-- No fabricated token data or demo metrics.
+## Implemented
+- Public archive search and classification filters.
+- Community reclamation submission UI with database RLS.
+- Phase 2 discovery worker using DexScreener and GeckoTerminal public endpoints.
+- Phase 3 historical vault: market snapshots, pool state, provenance, ingestion runs, events and data-gap tracking.
+- Phase 4 versioned, explainable lifecycle classification and reclamation research scoring.
+- Daily Vercel Cron runner at 07:00 UTC; it remains inactive until the three server-only variables are configured.
+- New discovery records are private by default and require human review before publication.
+
+See [docs/PHASES_2_4.md](docs/PHASES_2_4.md) for worker operation, scoring limits and setup instructions.
+
+## Classification safeguards
+Public market data cannot prove that a token is abandoned or dormant. The worker only assigns market-observation states (`active`, `declining`, `illiquid`, `unverified`). It does not infer on-chain inactivity, community strength, cultural significance or ownership authority. No records are automatically published.
 
 ## Not yet implemented
-- Automated Solana discovery workers and historical backfill.
-- Helius / market-data ingestion credentials.
-- Admin review console and authenticated moderation.
+- Helius-backed historical transaction/holder backfill.
+- Authenticated admin moderation console.
 - Wallet message-signature verification.
 - Paid subscriptions, billing and dataset/API entitlements.
 - Automated collectible issuance or revival transactions.
 
-The database schema is created separately in the existing Supabase project. Review `supabase/migrations/202611010001_memecycle_foundation.sql` as the source migration record.
+Database migrations live in `supabase/migrations/`. Edge Function source lives in `supabase/functions/memecycle-worker/`.
