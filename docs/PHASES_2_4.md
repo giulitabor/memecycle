@@ -43,3 +43,29 @@ Each run samples at most 30 candidates (hard cap 50) to respect public provider 
 4. Inspect `mc_ingestion_runs`, `mc_tokens`, `mc_token_pairs` and `mc_snapshots`.
 5. Review Supabase security/performance advisors.
 6. Manually review candidates before setting `visibility='public'`.
+
+
+## Stage 2 — Historical archive and data quality
+- Public token detail views read only records with `visibility='public'`.
+- Detail views display recorded price observations, pool records, classification history, source provenance, observed events and unresolved data gaps.
+- Price plots use actual snapshots only; the interface does not interpolate missing observations.
+- Search filters are restricted to the worker's current output labels: `active`, `declining`, `illiquid`, and `unverified`.
+- Data-quality coverage and lifecycle classification remain separate concepts.
+
+## Stage 3 — Reclamation review and publication controls
+- Public visitors may submit a Solana mint and evidence URLs. Submissions remain pending and do not publish tokens.
+- An authenticated moderation workspace is included in the site footer.
+- Admin authorization uses the trusted JWT `app_metadata.role = 'admin'` claim. Never use editable `user_metadata` for authorization.
+- Create an Auth user in Supabase, then set `app_metadata.role` to `admin` for that user in the Supabase Dashboard. Do not put the role in user-editable metadata.
+- Admins can move a submission through pending/under-review/approved/rejected and can separately publish private token candidates. Approving a community submission does not automatically publish or relabel a token.
+- Token publication is a deliberate human action. New worker discoveries stay private.
+- The moderation UI uses the signed-in user's Supabase session; database RLS independently enforces every read and update.
+
+## Stage 2/3 deployment checklist
+1. Apply migration `202611020003_phase_2_3_archive_moderation.sql`.
+2. Deploy the Vite app from the feature branch and check the Vercel Preview build.
+3. Confirm public users cannot read private tokens, private snapshots or pending submissions.
+4. Sign in using an Auth account whose trusted app metadata contains `role: admin`; verify the moderation queue works.
+5. Submit a test reclamation case and confirm it is visible only to admins.
+6. Publish one reviewed test token only after checking its identity and evidence.
+7. Verify the public token detail page shows actual snapshots and provenance.
