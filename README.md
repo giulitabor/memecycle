@@ -42,9 +42,12 @@ Public market data cannot prove that a token is abandoned or dormant. The worker
 
 ## Not yet implemented
 - Helius-backed historical transaction/holder backfill.
-- Authenticated admin moderation console.
+- Authenticated admin moderation console using trusted app_metadata role claims.
 - Wallet message-signature verification.
 - Paid subscriptions, billing and dataset/API entitlements.
 - Automated collectible issuance or revival transactions.
 
 Database migrations live in `supabase/migrations/`. Edge Function source lives in `supabase/functions/memecycle-worker/`.
+
+## Stage 2/3
+See [docs/PHASES_2_4.md](docs/PHASES_2_4.md) for the historical archive detail view, data-quality evidence, reclamation review queue, and admin role setup.

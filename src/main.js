@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
+import { initArchiveExperience } from './archive.js';
 
 const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
@@ -60,7 +61,7 @@ document.querySelector('#app').innerHTML = `
         <div class="search-panel">
           <div class="search-title"><span>⌕</span><div><b>Search the archive</b><small>Explore recorded digital asset histories</small></div><span class="source-pill">DATABASE CONNECTIVITY: <i id="db-status">NOT CONFIGURED</i></span></div>
           <form id="search-form"><input id="search-input" placeholder="Enter token name, symbol or mint address…" autocomplete="off"><button class="button primary" type="submit">Search archive <span>↗</span></button></form>
-          <div class="filters"><span>QUICK FILTERS</span><button data-filter="all" class="filter active">All records</button><button data-filter="dormant" class="filter">Dormant</button><button data-filter="abandoned" class="filter">Abandoned</button><button data-filter="historical" class="filter">Historical</button><button data-filter="community_revival" class="filter">Revival candidates</button></div>
+          <div class="filters"><span>QUICK FILTERS</span><button data-filter="all" class="filter active">All records</button><button data-filter="active" class="filter">Active</button><button data-filter="declining" class="filter">Declining</button><button data-filter="illiquid" class="filter">Illiquid</button><button data-filter="unverified" class="filter">Unverified</button></div>
           <div id="results" class="results"><div class="empty-state"><div class="empty-symbol">▤</div><b>Archive awaiting its first verified records</b><p>MEMECYCLE's database is connected when configured. No sample tokens or fabricated statistics are shown here.</p></div></div>
           <div class="result-foot"><span id="result-count">0 RECORDS DISPLAYED</span><span>DATA MAY BE INCOMPLETE · LAST OBSERVATION SHOWN PER RECORD</span></div>
         </div>
@@ -117,7 +118,7 @@ async function loadTokens(search='') {
   tokens = data || [];
   document.querySelector('#result-count').textContent = `${tokens.length} RECORDS DISPLAYED`;
   if (!tokens.length) { results.innerHTML = empty(search ? 'No matching published records' : 'No published records yet',search ? 'Try a different name, symbol or mint address.' : 'The archive is ready for its first reviewed and verified records.'); return; }
-  results.innerHTML = `<div class="token-table"><div class="token-row token-head"><span>ASSET</span><span>CLASSIFICATION</span><span>LIQUIDITY</span><span>HOLDERS</span><span>DATA COVERAGE</span></div>${tokens.map(t=>`<div class="token-row"><div class="asset"><span class="token-avatar">${esc((t.symbol||t.name||'?').slice(0,1).toUpperCase())}</span><span><b>${esc(t.name||'Unknown token')}</b><small>${esc(t.symbol||'—')} · ${esc(shortMint(t.mint))}</small></span></div><span><i class="classification ${esc(t.classification)}">${esc(t.classification.replaceAll('_',' '))}</i></span><span>${money(t.liquidity_usd)}</span><span>${t.holder_count ?? '—'}</span><span><div class="coverage"><i style="width:${Number(t.data_completeness||0)}%"></i></div><small>${Number(t.data_completeness||0)}%</small></span></div>`).join('')}</div>`;
+  results.innerHTML = `<div class="token-table"><div class="token-row token-head"><span>ASSET</span><span>CLASSIFICATION</span><span>LIQUIDITY</span><span>HOLDERS</span><span>DATA COVERAGE</span></div>${tokens.map(t=>`<div class="token-row" data-mint="${esc(t.mint)}" role="button" tabindex="0" aria-label="Open archive record for ${esc(t.name||t.symbol||t.mint)}"><div class="asset"><span class="token-avatar">${esc((t.symbol||t.name||'?').slice(0,1).toUpperCase())}</span><span><b>${esc(t.name||'Unknown token')}</b><small>${esc(t.symbol||'—')} · ${esc(shortMint(t.mint))}</small></span></div><span><i class="classification ${esc(t.classification)}">${esc(t.classification.replaceAll('_',' '))}</i></span><span>${money(t.liquidity_usd)}</span><span>${t.holder_count ?? '—'}</span><span><div class="coverage"><i style="width:${Number(t.data_completeness||0)}%"></i></div><small>${Number(t.data_completeness||0)}%</small></span></div>`).join('')}</div>`;
 }
 
 document.querySelector('#search-form').addEventListener('submit', e => {e.preventDefault(); loadTokens(document.querySelector('#search-input').value.trim());});
@@ -129,8 +130,9 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
   const mint=document.querySelector('#mint').value.trim();
   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)){msg.textContent='Please enter a valid-looking Solana mint address.';return;}
   msg.textContent='Submitting…';
-  const {error}=await db.from('mc_reclamation_cases').insert({mint,case_type:document.querySelector('#case-type').value,title:'Community submission',description:document.querySelector('#evidence').value.trim()||'Submitted for historical review.',evidence:[]});
+  const {error}=await db.from('mc_reclamation_cases').insert({mint,case_type:document.querySelector('#case-type').value,title:'Community submission',description:document.querySelector('#evidence').value.trim()||'Submitted for historical review.',evidence:document.querySelector('#evidence').value.split(/\s+/).filter(value=>{try{const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:';}catch{return false;}}).slice(0,10).map(url=>({type:'url',url})).filter(item=>item.url.length<=1000)});
   msg.textContent=error?'Submission could not be accepted. Please try again later.':'Submission received for review. It is not public until verified.';
   if(!error)e.target.reset();
 });
 loadTokens();
+initArchiveExperience(db);
