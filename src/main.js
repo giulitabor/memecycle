@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
+import { initArchiveExperience } from './archive.js';
 
 const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
@@ -117,7 +118,7 @@ async function loadTokens(search='') {
   tokens = data || [];
   document.querySelector('#result-count').textContent = `${tokens.length} RECORDS DISPLAYED`;
   if (!tokens.length) { results.innerHTML = empty(search ? 'No matching published records' : 'No published records yet',search ? 'Try a different name, symbol or mint address.' : 'The archive is ready for its first reviewed and verified records.'); return; }
-  results.innerHTML = `<div class="token-table"><div class="token-row token-head"><span>ASSET</span><span>CLASSIFICATION</span><span>LIQUIDITY</span><span>HOLDERS</span><span>DATA COVERAGE</span></div>${tokens.map(t=>`<div class="token-row"><div class="asset"><span class="token-avatar">${esc((t.symbol||t.name||'?').slice(0,1).toUpperCase())}</span><span><b>${esc(t.name||'Unknown token')}</b><small>${esc(t.symbol||'—')} · ${esc(shortMint(t.mint))}</small></span></div><span><i class="classification ${esc(t.classification)}">${esc(t.classification.replaceAll('_',' '))}</i></span><span>${money(t.liquidity_usd)}</span><span>${t.holder_count ?? '—'}</span><span><div class="coverage"><i style="width:${Number(t.data_completeness||0)}%"></i></div><small>${Number(t.data_completeness||0)}%</small></span></div>`).join('')}</div>`;
+  results.innerHTML = `<div class="token-table"><div class="token-row token-head"><span>ASSET</span><span>CLASSIFICATION</span><span>LIQUIDITY</span><span>HOLDERS</span><span>DATA COVERAGE</span></div>${tokens.map(t=>`<div class="token-row" data-mint="${esc(t.mint)}" role="button" tabindex="0" aria-label="Open archive record for ${esc(t.name||t.symbol||t.mint)}"><div class="asset"><span class="token-avatar">${esc((t.symbol||t.name||'?').slice(0,1).toUpperCase())}</span><span><b>${esc(t.name||'Unknown token')}</b><small>${esc(t.symbol||'—')} · ${esc(shortMint(t.mint))}</small></span></div><span><i class="classification ${esc(t.classification)}">${esc(t.classification.replaceAll('_',' '))}</i></span><span>${money(t.liquidity_usd)}</span><span>${t.holder_count ?? '—'}</span><span><div class="coverage"><i style="width:${Number(t.data_completeness||0)}%"></i></div><small>${Number(t.data_completeness||0)}%</small></span></div>`).join('')}</div>`;
 }
 
 document.querySelector('#search-form').addEventListener('submit', e => {e.preventDefault(); loadTokens(document.querySelector('#search-input').value.trim());});
@@ -134,3 +135,4 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
   if(!error)e.target.reset();
 });
 loadTokens();
+initArchiveExperience(db);
