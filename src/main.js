@@ -130,7 +130,7 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
   const mint=document.querySelector('#mint').value.trim();
   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)){msg.textContent='Please enter a valid-looking Solana mint address.';return;}
   msg.textContent='Submitting…';
-  const {error}=await db.from('mc_reclamation_cases').insert({mint,case_type:document.querySelector('#case-type').value,title:'Community submission',description:document.querySelector('#evidence').value.trim()||'Submitted for historical review.',evidence:document.querySelector('#evidence').value.split(/\\s+/).filter(url=>/^https?:\\/\\//i.test(url)).slice(0,10).map(url=>({type:'url',url})).filter(item=>item.url.length<=1000)});
+  const {error}=await db.from('mc_reclamation_cases').insert({mint,case_type:document.querySelector('#case-type').value,title:'Community submission',description:document.querySelector('#evidence').value.trim()||'Submitted for historical review.',evidence:document.querySelector('#evidence').value.split(/\s+/).filter(value=>{try{const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:';}catch{return false;}}).slice(0,10).map(url=>({type:'url',url})).filter(item=>item.url.length<=1000)});
   msg.textContent=error?'Submission could not be accepted. Please try again later.':'Submission received for review. It is not public until verified.';
   if(!error)e.target.reset();
 });
