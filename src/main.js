@@ -83,8 +83,8 @@ document.querySelector('#app').innerHTML = `
       <div class="plans"><article><span class="plan-tag">OPEN ACCESS</span><h3>Explorer</h3><p>Search published token histories and explore the public archive.</p><b>Free</b><small>Public records · Basic filters</small></article><article class="featured"><span class="plan-tag">RESEARCH</span><h3>Research Pro</h3><p>Deeper lifecycle analysis, downloadable research and advanced filtering.</p><b>Coming soon</b><small>Pricing and availability to be validated</small></article><article><span class="plan-tag">BUILDERS</span><h3>Data API</h3><p>Programmatic access to provenance-aware historical token datasets.</p><b>Coming soon</b><small>Usage-based access · Licensing</small></article></div>
     </section>
 
-    <section class="contribute-section" id="contribute"><div class="wrap contribute-grid"><div><div class="eyebrow">06 — ADD TO THE RECORD</div><h2>Know a story<br>we should <em>preserve?</em></h2><p>Submit a token and the evidence behind its history. Submissions are reviewed before becoming public archive records.</p><div class="privacy-note">⬡ Never share a seed phrase or private key. Wallet ownership checks use message signatures only.</div></div>
-      <form id="contribute-form" class="contribute-form"><label>Solana mint address<input required id="mint" placeholder="Paste token mint address"></label><label>What should we document?<select id="case-type"><option value="historical_archive">Historical archive</option><option value="metadata_correction">Metadata correction</option><option value="community_revival">Community revival proposal</option><option value="research_contribution">Research contribution</option></select></label><label>Evidence / context<textarea id="evidence" rows="3" placeholder="Share links, dates or context that can be independently checked…"></textarea></label><button class="button primary" type="submit">Submit for review <span>↗</span></button><div id="submit-message" class="form-message"></div></form>
+    <section class="contribute-section" id="contribute"><div class="wrap contribute-grid"><div><div class="eyebrow">06 — ADD TO THE RECORD</div><h2>Know a story<br>we should <em>preserve?</em></h2><p>Submit a token and the evidence behind its history. Submissions are reviewed before becoming public archive records.</p><div class="privacy-note">⬡ Never share a seed phrase or private key. Wallet signatures verify the submitting wallet only — they do not prove ownership or authority over a token.</div></div>
+      <form id="contribute-form" class="contribute-form"><label>Solana mint address<input required id="mint" placeholder="Paste token mint address"></label><label>What should we document?<select id="case-type"><option value="historical_archive">Historical archive</option><option value="metadata_correction">Metadata correction</option><option value="community_revival">Community revival proposal</option><option value="research_contribution">Research contribution</option></select></label><label>Evidence / context<textarea id="evidence" rows="3" placeholder="Share links, dates or context that can be independently checked…"></textarea></label><button class="button primary" type="submit">Sign & submit for review <span>↗</span></button><div id="submit-message" class="form-message"></div></form>
     </div></section>
   </main>
   <footer class="footer"><div class="wrap footer-top"><a class="brand" href="#"><span class="brand-mark">M</span><span>MEME<span class="green">CYCLE</span><small>THE DIGITAL AFTERLIFE</small></span></a><p>Preserve the past. Understand the present.<br>Build a more useful digital future.</p><span class="footer-status"><i></i> PLATFORM FOUNDATION</span></div><div class="wrap footer-bottom"><span>© 2026 MEMECYCLE. PLATFORM-FIRST. SOLANA FIRST.</span><span>Digital asset data is not a guarantee of value. No investment advice.</span></div></footer>
@@ -129,10 +129,31 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
   if(!db){msg.textContent='Submission is unavailable until the database is configured.';return;}
   const mint=document.querySelector('#mint').value.trim();
   if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)){msg.textContent='Please enter a valid-looking Solana mint address.';return;}
-  msg.textContent='Submitting…';
-  const {error}=await db.from('mc_reclamation_cases').insert({mint,case_type:document.querySelector('#case-type').value,title:'Community submission',description:document.querySelector('#evidence').value.trim()||'Submitted for historical review.',evidence:document.querySelector('#evidence').value.split(/\s+/).filter(value=>{try{const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:';}catch{return false;}}).slice(0,10).map(url=>({type:'url',url})).filter(item=>item.url.length<=1000)});
-  msg.textContent=error?'Submission could not be accepted. Please try again later.':'Submission received for review. It is not public until verified.';
-  if(!error)e.target.reset();
+  const provider=window.phantom?.solana||window.solana;
+  if(!provider?.connect||!provider?.signMessage){msg.textContent='A Solana wallet with message-signing support is required. Connect Phantom or another compatible wallet.';return;}
+  const caseType=document.querySelector('#case-type').value;
+  const description=document.querySelector('#evidence').value.trim()||'Submitted for historical review.';
+  const evidence=document.querySelector('#evidence').value.split(/\\s+/).filter(value=>{try{const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:';}catch{return false;}}).slice(0,10).map(url=>({type:'url',url})).filter(item=>item.url.length<=1000);
+  const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+  try{
+    msg.textContent='Connect your wallet…';
+    const connected=await provider.connect();
+    const wallet=connected.publicKey?.toString?.()||provider.publicKey?.toString?.();
+    if(!wallet)throw new Error('Wallet did not return a public address.');
+    msg.textContent='Preparing a one-time verification message…';
+    const challenge=await db.functions.invoke('memecycle-community',{body:{action:'challenge',wallet,mint,case_type:caseType,description,evidence}});
+    if(challenge.error||!challenge.data?.challenge_id)throw new Error(challenge.data?.error||'Could not prepare wallet verification.');
+    msg.textContent='Approve the message signature in your wallet. No transaction or token transfer is involved.';
+    const signed=await provider.signMessage(new TextEncoder().encode(challenge.data.message),'utf8');
+    const bytes=signed.signature||signed;
+    const signature=btoa(String.fromCharCode(...bytes));
+    msg.textContent='Verifying signature and submitting…';
+    const submitted=await db.functions.invoke('memecycle-community',{body:{action:'submit',challenge_id:challenge.data.challenge_id,signature}});
+    if(submitted.error||!submitted.data?.ok)throw new Error(submitted.data?.error||'Signature verification or submission failed.');
+    msg.textContent='Submission received. Your wallet signature is verified; this does not establish ownership or authority over the token. The record remains private pending review.';
+    e.currentTarget.reset();
+  }catch(error){msg.textContent=String(error?.message||'Submission failed. You can try again.').slice(0,240);}
+  finally{button.disabled=false;}
 });
 loadTokens();
 initArchiveExperience(db);
