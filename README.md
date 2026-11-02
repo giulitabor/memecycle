@@ -29,6 +29,7 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 ## Automated engine
 - Daily discovery at 07:00 UTC from DexScreener token profiles, boosts and GeckoTerminal trending pools.
 - Daily lifecycle monitoring at 08:00 UTC across the oldest-updated archive records (up to 50 per run; rows rotate as they are updated).
+- Limited on-chain activity sampling on up to five tokens per monitor run, using the configured Helius RPC URL and inspecting the three largest token accounts per mint. This is explicitly partial coverage, not an exhaustive transaction history.
 - Each monitor pass records a fresh market snapshot, reassesses market-state classification and logs changes.
 - GeckoTerminal OHLCV backfill adds up to 90 real daily candles per pool where available. The public API is rate-limited, so at most eight new pools are backfilled per run.
 - Market states (active, declining, illiquid, unverified) describe market observations only. Missing DEX data is not treated as proof of inactivity.
@@ -43,7 +44,7 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 - Manual administrator publication of private discovery candidates.
 
 ## Still requires additional data access / product work
-- Verified on-chain holder and transaction activity history (requires a reliable indexed RPC provider such as Helius and a defined coverage strategy).
+- Comprehensive indexed holder and transaction activity history (current RPC sampling is limited to the top three token accounts for five tokens per run; it is not exhaustive).
 - Evidence-backed abandonment adjudication and its publication criteria. Market inactivity alone is insufficient.
 - Wallet message-signature verification for reclamation authority.
 - Paid subscriptions, billing, API keys and dataset entitlements.
