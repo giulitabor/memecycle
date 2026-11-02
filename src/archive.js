@@ -60,12 +60,12 @@ export function initArchiveExperience(db) {
       <div class="admin-content"><p>Sign in with a Supabase Auth account that has the trusted <code>app_metadata.role = admin</code> claim. Public user metadata cannot grant access.</p>
         <form id="admin-login" class="admin-login"><input id="admin-email" type="email" autocomplete="username" placeholder="Admin email" required><input id="admin-password" type="password" autocomplete="current-password" placeholder="Password" required><button class="button primary">Sign in</button></form>
         <div id="admin-status" class="form-message" aria-live="polite"></div>
-        <div id="admin-workspace" hidden><div class="admin-toolbar"><b>Review queue</b><button id="admin-logout" class="filter">Sign out</button></div><div id="admin-cases"></div><h3>Private discovery candidates</h3><div id="admin-tokens"></div><h3>Discovery sources</h3><p>Provider health and last successful fetch. Pump.fun launch history and Jupiter metadata are best-effort external sources.</p><div id="admin-sources"></div><h3>Automation activity</h3><p>Scheduled discovery and monitoring runs, including errors and historical backfill progress.</p><div id="admin-runs"></div><h3>Potential abandonment candidates</h3><p>Low-confidence leads from old pools, low market activity and sampled holder-account observations. These are not confirmed abandoned tokens.</p><div id="admin-abandonment"></div></div>
+        <div id="admin-workspace" hidden><div class="admin-toolbar"><b>Review queue</b><div><button data-run-engine="discover" class="filter">Run discovery now</button><button data-run-engine="monitor" class="filter">Run monitor now</button><button id="admin-logout" class="filter">Sign out</button></div></div><div id="admin-cases"></div><h3>Private discovery candidates</h3><div id="admin-tokens"></div><h3>Discovery sources</h3><p>Provider health and last successful fetch. Pump.fun launch history and Jupiter metadata are best-effort external sources.</p><div id="admin-sources"></div><h3>Automation activity</h3><p>Scheduled discovery and monitoring runs, including errors and historical backfill progress.</p><div id="admin-runs"></div><h3>Potential abandonment candidates</h3><p>Low-confidence leads from old pools, low market activity and sampled holder-account observations. These are not confirmed abandoned tokens.</p><div id="admin-abandonment"></div></div>
       </div>
     </details>`;
   document.querySelector('.footer')?.before(admin);
 
-  const status=admin.querySelector('#admin-status'), workspace=admin.querySelector('#admin-workspace');
+  const status=admin.querySelector('#admin-status'), workspace=admin.querySelector('#admin-workspace');let adminAccessToken=null;
   const login=admin.querySelector('#admin-login');
   async function loadAdminQueue(){
     const [cases,tokens,runs,abandonment,sources]=await Promise.all([
@@ -89,11 +89,24 @@ export function initArchiveExperience(db) {
     const user=session?.user;
     if(!user){workspace.hidden=true;login.hidden=false;return;}
     if(user.app_metadata?.role!=='admin'){await db.auth.signOut();status.textContent='This account is not authorised for archive administration.';workspace.hidden=true;login.hidden=false;return;}
-    login.hidden=true;workspace.hidden=false;status.textContent='Authenticated administrator.';await loadAdminQueue();
+    adminAccessToken=session.access_token;login.hidden=true;workspace.hidden=false;status.textContent='Authenticated administrator.';await loadAdminQueue();
   }
   login.addEventListener('submit',async e=>{e.preventDefault();status.textContent='Signing in…';const {data,error}=await db.auth.signInWithPassword({email:admin.querySelector('#admin-email').value,password:admin.querySelector('#admin-password').value});if(error){status.textContent='Sign-in failed. Check the account and password.';return;}await checkSession(data.session);});
-  admin.querySelector('#admin-logout').addEventListener('click',async()=>{await db.auth.signOut();status.textContent='Signed out.';workspace.hidden=true;login.hidden=false;});
+  admin.querySelector('#admin-logout').addEventListener('click',async()=>{await db.auth.signOut();adminAccessToken=null;status.textContent='Signed out.';workspace.hidden=true;login.hidden=false;});
   admin.addEventListener('click',async e=>{
+    const runButton=e.target.closest('[data-run-engine]');
+    if(runButton){
+      const action=runButton.dataset.runEngine;runButton.disabled=true;status.textContent=action==='discover'?'Running token discovery…':'Running lifecycle monitor…';
+      try{
+        const response=await fetch('/api/admin/run-engine',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${adminAccessToken||''}`},body:JSON.stringify({action})});
+        const result=await response.json().catch(()=>({error:'The engine returned an unreadable response.'}));
+        if(!response.ok)throw new Error(result.error||'Engine run failed.');
+        status.textContent=`${action==='discover'?'Discovery':'Monitoring'} completed: ${result.tokens_upserted??result.records_checked??0} tokens checked, ${result.snapshots_inserted??0} snapshots, ${result.errors??result.error_count??0} errors.`;
+        await loadAdminQueue();
+      }catch(error){status.textContent=String(error?.message||'Engine run failed.').slice(0,240);}
+      finally{runButton.disabled=false;}
+      return;
+    }
     const caseButton=e.target.closest('[data-case]');
     const publishButton=e.target.closest('[data-publish]');
     if(caseButton){caseButton.disabled=true;const {error}=await db.from('mc_reclamation_cases').update({review_status:caseButton.dataset.status,reviewed_at:new Date().toISOString()}).eq('id',caseButton.dataset.case);status.textContent=error?'Could not update review status.':'Review status saved.';await loadAdminQueue();}
