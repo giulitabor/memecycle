@@ -74,3 +74,7 @@ Database migrations live in `supabase/migrations/`. Edge Function source lives i
 
 ## Research synthesis
 - The current research dossier is deterministic and explainable (rules-based v1), not a generative-AI verdict. It records research coverage, a community follow-up priority score, provider evidence and risk flags. The priority score is not a probability of revival or a financial recommendation.
+
+## Operator controls
+- Administrators can trigger discovery and monitoring immediately from the Archive administration workspace. The server verifies the Supabase Auth user's trusted `app_metadata.role=admin` claim; service-role credentials remain server-side.
+- Manual runs are rate-limited to one per run type every five minutes. Manual monitoring checks up to 10 records and backfills at most two pools to stay within serverless execution limits. Scheduled monitoring retains its larger daily batch.
