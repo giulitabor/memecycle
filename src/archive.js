@@ -90,5 +90,5 @@ export function initArchiveExperience(db) {
     if(publishButton){publishButton.disabled=true;const {error}=await db.from('mc_tokens').update({visibility:'public'}).eq('mint',publishButton.dataset.publish).eq('visibility','private');status.textContent=error?'Could not publish this record.':'Record published.';await loadAdminQueue();}
   });
   db.auth.getSession().then(({data})=>checkSession(data.session));
-  db.auth.onAuthStateChange((_event,session)=>{checkSession(session);});
+  db.auth.onAuthStateChange((_event,session)=>{queueMicrotask(()=>checkSession(session));});
 }
