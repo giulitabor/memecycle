@@ -55,3 +55,22 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 Public market data cannot prove that a token is abandoned or dormant. MEMECYCLE separates observable market states from on-chain activity, community status and ownership authority. It does not infer or promise any of those facts from price or liquidity data.
 
 Database migrations live in `supabase/migrations/`. Edge Function source lives in `supabase/functions/`.
+
+## Expanded discovery and research sources
+- DexScreener profiles/boosts and GeckoTerminal trending pools remain the baseline discovery feeds.
+- Pump.fun launch history is ingested from the independent pumpdata.fun launch cursor endpoint once per daily discovery run. It is a best-effort external dataset, not an official pump.fun API. The worker samples at most the 25 newest launch rows from that feed per run, stores creator/deployer/bundle/migration facts with provenance, and makes no Solana RPC calls for this source. The free endpoint documents 300 calls/day per IP; MEMECYCLE uses one call per run.
+- Jupiter Tokens API v2 provides a single batch metadata/enrichment request per discovery run, including verification, organic score, holder count and audit flags. Keyless access is limited to 0.5 requests/second; the worker makes one request per run and no RPC calls.
+- The official pump.fun Developer API is a separate approved, keyed, read-only social/profile API. It is not required for the current launch-history integration and may be added later if MEMECYCLE obtains approval and a server-side key.
+
+## Evidence-based automatic publication
+- The monitor makes at most three Solana RPC calls per run. Each call asks for the latest signature on one primary DEX pool account; there is no broad account scan or holder-wallet crawl.
+- One batched Jupiter Tokens API lookup is made per monitor run. Research dossiers combine DEX market age/liquidity/volume, Jupiter verification/organic/audit signals, Pump.fun launch provenance when available, and the sampled pool-account signature.
+- Records may be automatically published only as **dormant market records** when the primary pool is at least 180 days old, its latest sampled pool-account signature is at least 90 days old, liquidity is below $1,000, 24-hour volume below $500, Jupiter marks it unverified with organic score at or below 10, and there is no pending community case.
+- Automatic publication never sets classification to `abandoned`. A dormant pool is a market-history observation, not proof that a project, token or community has ceased to exist.
+
+## Community verification
+- Community submissions now require a one-time Ed25519 wallet message signature. Challenges expire after five minutes, are single-use, and are rate-limited per wallet.
+- The signature proves control of the submitting wallet only. It does not prove token ownership, creator identity or authority to revive a project. Those claims remain subject to independent review.
+
+## Research synthesis
+- The current research dossier is deterministic and explainable (rules-based v1), not a generative-AI verdict. It records research coverage, a community follow-up priority score, provider evidence and risk flags. The priority score is not a probability of revival or a financial recommendation.
