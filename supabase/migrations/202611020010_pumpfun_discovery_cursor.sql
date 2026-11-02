@@ -1,0 +1,1 @@
+alter table public.mc_discovery_sources add column if not exists cursor_value bigint;
