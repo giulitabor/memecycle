@@ -18,7 +18,7 @@ async function discover(limit:number){const {data:run,error:runErr}=await db.fro
  try{
   const {data:src}=await db.from("mc_discovery_sources").select("cursor_value,enabled").eq("source_key","pumpfun_launch_history").maybeSingle();
   if(src?.enabled!==false){
-   const cursor=Number(src?.cursor_value)||Math.floor(Date.now()/1000)-600;
+   const cursor=Number(src?.cursor_value)||Math.floor(Date.now()/1000)-86400;
    const payload:any=await get(`https://pumpdata.fun/launches/since.json?t=${cursor}`);
    const columns:string[]=payload.columns??[];
    const rows:any[]=(payload.launches??[]).map((row:any)=>Array.isArray(row)?Object.fromEntries(columns.map((name,i)=>[name,row[i]])):row),sampledRows=rows.slice(-25);
