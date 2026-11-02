@@ -101,7 +101,7 @@ export function initArchiveExperience(db) {
         const response=await fetch('/api/admin/run-engine',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${adminAccessToken||''}`},body:JSON.stringify({action})});
         const result=await response.json().catch(()=>({error:'The engine returned an unreadable response.'}));
         if(!response.ok)throw new Error(result.error||'Engine run failed.');
-        status.textContent=`${action==='discover'?'Discovery':'Monitoring'} completed: ${result.tokens_upserted??result.records_checked??0} tokens checked, ${result.snapshots_inserted??0} snapshots, ${result.errors??result.error_count??0} errors.`;
+        status.textContent=`${action==='discover'?'Discovery':'Monitoring'} completed: ${result.tokens_upserted??result.records_checked??0} tokens checked, ${result.snapshots_inserted??0} snapshots, ${result.errors??result.error_count??result.source_errors?.length??0} errors.`;
         await loadAdminQueue();
       }catch(error){status.textContent=String(error?.message||'Engine run failed.').slice(0,240);}
       finally{runButton.disabled=false;}
