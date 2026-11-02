@@ -32,8 +32,10 @@ The scheduled server-side discovery runner additionally requires `SUPABASE_URL`,
 - Phase 2 discovery worker using DexScreener and GeckoTerminal public endpoints.
 - Phase 3 historical vault: market snapshots, pool state, provenance, ingestion runs, events and data-gap tracking.
 - Phase 4 versioned, explainable lifecycle classification and reclamation research scoring.
-- Daily Vercel Cron runner at 07:00 UTC; it remains inactive until the three server-only variables are configured.
+- Daily Vercel Cron runner at 07:00 UTC; server-side credentials are configured in Production. First successful ingestion still needs verification.
 - New discovery records are private by default and require human review before publication.
+- Stage 2 historical token detail pages with snapshots, pool data, provenance, classification history, events and data gaps.
+- Stage 3 evidence-backed reclamation submissions and an authenticated moderation console with RLS-enforced manual publication.
 
 See [docs/PHASES_2_4.md](docs/PHASES_2_4.md) for worker operation, scoring limits and setup instructions.
 
@@ -42,7 +44,6 @@ Public market data cannot prove that a token is abandoned or dormant. The worker
 
 ## Not yet implemented
 - Helius-backed historical transaction/holder backfill.
-- Authenticated admin moderation console using trusted app_metadata role claims.
 - Wallet message-signature verification.
 - Paid subscriptions, billing and dataset/API entitlements.
 - Automated collectible issuance or revival transactions.
