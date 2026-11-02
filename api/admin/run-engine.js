@@ -3,17 +3,16 @@ export default async function handler(req,res){
  if(req.method!=="POST"){res.setHeader("Allow","POST");return res.status(405).json({error:"Method not allowed"});}
  const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
  const service=process.env.SUPABASE_SERVICE_ROLE_KEY;
- const anon=process.env.SUPABASE_ANON_KEY||process.env.VITE_SUPABASE_ANON_KEY;
- if(!url||!service||!anon)return res.status(503).json({error:"Admin engine runner is not configured."});
+ if(!url||!service)return res.status(503).json({error:"Admin engine runner is not configured."});
  const auth=String(req.headers.authorization||"");
  if(!auth.startsWith("Bearer "))return res.status(401).json({error:"Sign in as an administrator."});
  const {createClient}=await import("@supabase/supabase-js");
- const userClient=createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false}});
- const {data:userData,error:userError}=await userClient.auth.getUser(auth.slice(7));
- if(userError||userData.user?.app_metadata?.role!=="admin")return res.status(403).json({error:"Administrator access required."});
+ const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:userData,error:userError}=await admin.auth.getUser(auth.slice(7));
+ if(userError)return res.status(401).json({error:"Your administrator session could not be verified. Please sign out and sign in again."});
+ if(userData.user?.app_metadata?.role!=="admin")return res.status(403).json({error:"Administrator access required."});
  const action=req.body?.action;
  if(action!=="discover"&&action!=="monitor")return res.status(400).json({error:"Choose discovery or monitor."});
- const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
  const since=new Date(Date.now()-5*60*1000).toISOString();
  const runType=action==="discover"?"discovery":"monitor";
  const {count,error:countError}=await admin.from("mc_ingestion_runs").select("id",{count:"exact",head:true}).eq("run_type",runType).gte("started_at",since);
