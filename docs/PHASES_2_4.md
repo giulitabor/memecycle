@@ -17,7 +17,7 @@ Function: `memecycle-worker`, POST `/functions/v1/memecycle-worker`.
 Body: `{"action":"discover","limit":30}` or `{"action":"health"}`.  
 Authorization: `Bearer <SUPABASE_SERVICE_ROLE_KEY>`.
 
-The Supabase Edge runtime supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The function checks the bearer against the server-side service-role key. Never expose this key to a browser or put it in a `VITE_*` variable.
+The Supabase Edge runtime supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Gateway JWT verification is disabled because the worker performs its own exact bearer-key check against the server-side service-role key before doing any work. Never expose this key to a browser or put it in a `VITE_*` variable.
 
 ## Vercel daily runner
 A daily Vercel Cron schedule at 07:00 UTC calls `/api/cron/discover`. Add these server-only Production environment variables:
