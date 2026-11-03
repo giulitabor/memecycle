@@ -60,7 +60,7 @@ export function initArchiveExperience(db) {
       <div class="admin-content"><p>Sign in with a Supabase Auth account that has the trusted <code>app_metadata.role = admin</code> claim. Public user metadata cannot grant access.</p>
         <form id="admin-login" class="admin-login"><input id="admin-email" type="email" autocomplete="username" placeholder="Admin email" required><input id="admin-password" type="password" autocomplete="current-password" placeholder="Password" required><button class="button primary">Sign in</button></form>
         <div id="admin-status" class="form-message" aria-live="polite"></div>
-        <div id="admin-workspace" hidden><div class="admin-toolbar"><b>Review queue</b><div><button data-run-engine="discover" class="filter">Run discovery now</button><button data-run-engine="monitor" class="filter">Run monitor now</button><button id="admin-logout" class="filter">Sign out</button></div></div><div id="admin-cases"></div><h3>Private discovery candidates</h3><div id="admin-tokens"></div><h3>Discovery sources</h3><p>Provider health and last successful fetch. Pump.fun launch history and Jupiter metadata are best-effort external sources.</p><div id="admin-sources"></div><h3>Automation activity</h3><p>Scheduled discovery and monitoring runs, including errors and historical backfill progress.</p><div id="admin-runs"></div><h3>Potential abandonment candidates</h3><p>Low-confidence leads from old pools, low market activity and sampled holder-account observations. These are not confirmed abandoned tokens.</p><div id="admin-abandonment"></div></div>
+        <div id="admin-workspace" hidden><div class="admin-toolbar"><b>Review queue</b><div><button data-run-engine="discover" class="filter">Run discovery now</button><button data-run-engine="monitor" class="filter">Run monitor now</button><button id="admin-logout" class="filter">Sign out</button></div></div><div id="admin-cases"></div><h3>AI research desk</h3><p>On-demand AI analysis grounded in stored history and live provider evidence. Reports distinguish observations, provider claims, inferences and unknowns.</p><div id="admin-research-reports"></div><h3>Private discovery candidates</h3><div id="admin-tokens"></div><h3>Discovery sources</h3><p>Provider health and last successful fetch. Pump.fun launch history and Jupiter metadata are best-effort external sources.</p><div id="admin-sources"></div><h3>Automation activity</h3><p>Scheduled discovery and monitoring runs, including errors and historical backfill progress.</p><div id="admin-runs"></div><h3>Potential abandonment candidates</h3><p>Low-confidence leads from old pools, low market activity and sampled holder-account observations. These are not confirmed abandoned tokens.</p><div id="admin-abandonment"></div></div>
       </div>
     </details>`;
   document.querySelector('.footer')?.before(admin);
@@ -77,7 +77,16 @@ export function initArchiveExperience(db) {
     ]);
     const caseHost=admin.querySelector('#admin-cases'), tokenHost=admin.querySelector('#admin-tokens');
     caseHost.innerHTML=cases.error?`<p class="detail-error">${esc(cases.error.message)}</p>`:(cases.data||[]).map(c=>`<article class="admin-item"><div><b>${esc(c.case_type)} · ${esc(c.mint)}</b><small>${date(c.created_at)} · ${esc(c.review_status)}</small><p>${esc(c.description)}</p><small>${c.submitter_wallet_verified_at?'WALLET SIGNATURE VERIFIED · ': 'WALLET NOT VERIFIED · '}${esc(c.submitter_wallet||'No wallet supplied')} · Signature proves submitter control only, not token ownership</small><small>${(c.evidence||[]).map(e=>safeUrl(e.url)?`<a href="${esc(safeUrl(e.url))}" target="_blank" rel="noopener noreferrer">Evidence link ↗</a>`:esc(e.note||'')).join(' · ')}</small></div><div class="admin-actions"><button data-case="${esc(c.id)}" data-status="under_review" class="filter">Take review</button><button data-case="${esc(c.id)}" data-status="approved" class="filter">Approve</button><button data-case="${esc(c.id)}" data-status="rejected" class="filter">Reject</button></div></article>`).join('')||'<p>No pending submissions.</p>';
-    tokenHost.innerHTML=tokens.error?`<p class="detail-error">${esc(tokens.error.message)}</p>`:(tokens.data||[]).map(t=>`<article class="admin-item"><div><b>${esc(t.name||'Unknown')} (${esc(t.symbol||'—')})</b><small>${esc(t.mint)} · ${esc(t.classification)} · liquidity ${compact(t.liquidity_usd)}</small></div><button class="button primary" data-publish="${esc(t.mint)}">Publish record</button></article>`).join('')||'<p>No private candidates waiting.</p>';
+    tokenHost.innerHTML=tokens.error?`<p class="detail-error">${esc(tokens.error.message)}</p>`:(tokens.data||[]).map(t=>`<article class="admin-item"><div><b>${esc(t.name||'Unknown')} (${esc(t.symbol||'—')})</b><small>${esc(t.mint)} · ${esc(t.classification)} · liquidity ${compact(t.liquidity_usd)}</small></div><div class="admin-actions"><button class="filter" data-research="${esc(t.mint)}">Research with AI</button><button class="button primary" data-publish="${esc(t.mint)}">Publish record</button></div></article>`).join('')||'<p>No private candidates waiting.</p>';
+    const researchHost=admin.querySelector('#admin-research-reports');
+    try{
+      const rr=await fetch('/api/admin/research',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${adminAccessToken||''}`},body:JSON.stringify({action:'list',limit:15})});
+      const rd=await rr.json();
+      researchHost.innerHTML=!rr.ok?`<p class="detail-error">${esc(rd.error||'Could not load AI research reports.')}</p>`:(rd.reports||[]).map(r=>{
+        const report=r.report||{}, findings=Array.isArray(report.findings)?report.findings:[];
+        return `<article class="admin-item"><div><b>${esc(report.token_identity?.name||r.mint)} (${esc(report.token_identity?.symbol||'—')}) · ${esc(report.overall_assessment||r.status)}</b><small>${date(r.created_at)} · ${esc(r.model)} · confidence ${esc(report.confidence||'—')}</small><p>${esc(r.summary||'')}</p><small>${findings.length} cited findings · ${(report.data_gaps||[]).length} data gaps · prompt ${esc(r.prompt_version)}</small></div><details><summary>Open full research report</summary><pre>${esc(JSON.stringify(report,null,2))}</pre></details></article>`;
+      }).join('')||'<p>No AI research reports yet. Select Research with AI on a private candidate to create the first report.</p>';
+    }catch(e){researchHost.innerHTML='<p class="detail-error">AI research reports could not be loaded.</p>';}
     const sourceHost=admin.querySelector('#admin-sources');
     sourceHost.innerHTML=sources.error?`<p class='detail-error'>${esc(sources.error.message)}</p>`:(sources.data||[]).map(x=>`<article class='admin-item'><div><b>${esc(x.source_key)} · ${esc(x.enabled?'enabled':'disabled')}</b><small>${esc(x.provider)} · ${date(x.last_success_at)} · ${x.records_seen??0} records last seen</small><small>${esc(x.endpoint)}</small><small>${x.last_error?esc(x.last_error):'No recorded source error'}</small></div></article>`).join('')||'<p>No discovery sources configured.</p>';
     const runHost=admin.querySelector('#admin-runs');
@@ -105,6 +114,19 @@ export function initArchiveExperience(db) {
         await loadAdminQueue();
       }catch(error){status.textContent=String(error?.message||'Engine run failed.').slice(0,240);}
       finally{runButton.disabled=false;}
+      return;
+    }
+    const researchButton=e.target.closest('[data-research]');
+    if(researchButton){
+      researchButton.disabled=true;status.textContent='Collecting evidence and running AI research…';
+      try{
+        const response=await fetch('/api/admin/research',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${adminAccessToken||''}`},body:JSON.stringify({action:'research',mint:researchButton.dataset.research})});
+        const result=await response.json().catch(()=>({error:'AI research returned an unreadable response.'}));
+        if(!response.ok)throw new Error(result.error||'AI research failed.');
+        status.textContent=`AI research saved for ${result.report?.mint||researchButton.dataset.research}. Model: ${result.model}. Evidence coverage: ${result.report?.report?.coverage_score??'not scored'}.`;
+        await loadAdminQueue();
+      }catch(error){status.textContent=String(error?.message||'AI research failed.').slice(0,260);}
+      finally{researchButton.disabled=false;}
       return;
     }
     const caseButton=e.target.closest('[data-case]');
