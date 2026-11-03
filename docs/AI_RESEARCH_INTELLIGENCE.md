@@ -8,9 +8,11 @@ MEMECYCLE's AI Research Analyst creates evidence-grounded, auditable research re
 
 - Admin-only Vercel Function: `POST /api/admin/research`
 - Authentication: Supabase Auth access token, verified server-side; trusted `app_metadata.role = admin` required.
-- Model gateway: Vercel AI Gateway using Vercel OIDC (no provider key in browser or repository).
-- Default model: `deepseek/deepseek-v4.1-flash-1017`; override with `MEMECYCLE_RESEARCH_MODEL`.
-- Generation is on-demand, one token per request, with a 10-minute per-token cooldown and a bounded output budget.
+- Default provider: direct DeepSeek API (`https://api.deepseek.com/chat/completions`); no Vercel AI Gateway billing/card dependency.
+- Authentication: `DEEPSEEK_API_KEY` stored only as an encrypted Vercel server-side environment variable; never exposed to the browser or repository.
+- Default model: `deepseek-flash` (DeepSeek's current Flash model alias); override with `MEMECYCLE_RESEARCH_MODEL`.
+- Optional alternate provider: set `MEMECYCLE_AI_PROVIDER=vercel` to use Vercel AI Gateway with Vercel OIDC instead. The default is `deepseek`.
+- Generation is on-demand, one token per request, with a 10-minute per-token cooldown, a 42-second timeout, JSON-mode output, and a bounded 5,000-token output ceiling. DeepSeek thinking mode is disabled for this structured report task to limit latency and usage.
 - Reports are persisted in `public.mc_ai_research_reports`.
 
 ## Evidence sources
