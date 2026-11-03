@@ -22,6 +22,80 @@ async function requireAdmin(req) {
   return { db, user: data.user };
 }
 
+async function readSolanaEvidence(mint) {
+  const endpoint = process.env.HELIUS_RPC || "";
+  if (!endpoint) return { status: "unavailable", reason: "No Helius RPC endpoint configured." };
+  let host;
+  try { host = new URL(endpoint).hostname; } catch { return { status: "unavailable", reason: "Configured RPC endpoint is invalid." }; }
+  if (!(host === "mainnet.helius-rpc.com" || host.endsWith(".helius-rpc.com"))) {
+    return { status: "unavailable", reason: "Research RPC is restricted to the configured Helius endpoint." };
+  }
+  const rpc = async (method, params) => {
+    const r = await fetch(endpoint, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params }),
+      signal: AbortSignal.timeout(8500)
+    });
+    if (!r.ok) throw new Error(`Helius RPC HTTP ${r.status}`);
+    const body = await r.json();
+    if (body.error) throw new Error(trimText(body.error.message || "RPC error",180));
+    return body.result;
+  };
+  try {
+    const [mintAccount, largest] = await Promise.all([
+      rpc("getAccountInfo", [mint, { encoding: "jsonParsed", commitment: "confirmed" }]),
+      rpc("getTokenLargestAccounts", [mint, { commitment: "confirmed" }])
+    ]);
+    const mintInfo = mintAccount?.value?.data?.parsed?.info ?? null;
+    const accounts = safeArray(largest?.value).slice(0,20);
+    let resolved = [];
+    if (accounts.length) {
+      const batch = await rpc("getMultipleAccounts", [accounts.map(x => x.address), { encoding: "jsonParsed", commitment: "confirmed" }]);
+      resolved = safeArray(batch?.value);
+    }
+    const supplyRaw = mintInfo?.supply != null ? String(mintInfo.supply) : null;
+    const denominator = supplyRaw && /^\d+$/.test(supplyRaw) ? BigInt(supplyRaw) : null;
+    const rows = accounts.map((a,i) => {
+      const info = resolved[i]?.data?.parsed?.info ?? null;
+      const amount = String(a.amount ?? "0");
+      let share = null;
+      if (denominator && denominator > 0n && /^\d+$/.test(amount)) share = Number((BigInt(amount) * 10000n) / denominator) / 100;
+      return {
+        rank: i+1, token_account: a.address, owner: info?.owner ?? null,
+        raw_amount: amount, ui_amount: a.uiAmountString ?? a.uiAmount ?? null,
+        share_of_mint_supply_pct: share,
+        account_state: resolved[i] ? "resolved" : "unresolved",
+        account_program_owner: resolved[i]?.owner ?? null
+      };
+    });
+    const topShare = n => rows.slice(0,n).reduce((sum,x)=>sum+(x.share_of_mint_supply_pct??0),0);
+    return {
+      status: "available",
+      mint_account: {
+        initialized: mintInfo?.isInitialized ?? null,
+        decimals: mintInfo?.decimals ?? null,
+        mint_authority: mintInfo?.mintAuthority ?? null,
+        freeze_authority: mintInfo?.freezeAuthority ?? null,
+        supply_raw: supplyRaw
+      },
+      largest_token_accounts: rows,
+      concentration: {
+        top_5_token_accounts_pct: Number(topShare(5).toFixed(2)),
+        top_10_token_accounts_pct: Number(topShare(10).toFixed(2)),
+        top_20_token_accounts_pct: Number(topShare(20).toFixed(2)),
+        methodology: "Share of mint supply held by the largest returned token accounts. This is not a beneficial-owner concentration metric; AMM vaults, exchanges and program-controlled accounts can dominate."
+      },
+      limitations: [
+        "This samples the 20 largest token accounts, not every token account or beneficial owner.",
+        "Pool vaults and program-controlled accounts may be among the largest accounts.",
+        "Owner addresses are public chain identifiers; this does not attribute real-world identity or intent."
+      ]
+    };
+  } catch (e) {
+    return { status: "unavailable", reason: trimText(e.message,220) };
+  }
+}
+
 async function readLiveEvidence(mint) {
   const [dex, jup] = await Promise.allSettled([
     fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(mint)}`, { headers: { accept: "application/json", "user-agent": "MEMECYCLE/1.0" }, signal: AbortSignal.timeout(9000) }).then(async r => { if (!r.ok) throw new Error(`DexScreener HTTP ${r.status}`); return r.json(); }),
@@ -141,14 +215,15 @@ export default async function handler(req, res) {
   const {data:recent,error:recentError}=await db.from("mc_ai_research_reports").select("id,created_at").eq("mint",mint).eq("status","completed").gte("created_at",new Date(Date.now()-10*60*1000).toISOString()).order("created_at",{ascending:false}).limit(1);
   if(recentError)return json(res,500,{error:"Could not check recent research runs."});
   if(recent?.length)return json(res,429,{error:"This token was researched in the last ten minutes. Open the existing report or wait before running it again.",report_id:recent[0].id});
-  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,live] = await Promise.all([
+  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,live,solana] = await Promise.all([
     db.from("mc_tokens").select("mint,chain,name,symbol,classification,lifecycle_status,first_seen_at,last_activity_at,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,data_completeness,reclamation_score,score_breakdown,risk_flags,source_provenance,discovery_sources,primary_pair_address,dex_url,visibility").eq("mint",mint).maybeSingle(),
     db.from("mc_snapshots").select("observed_at,price_usd,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,source,fdv_usd,price_change_24h_pct,pair_address,dex_id").eq("mint",mint).order("observed_at",{ascending:false}).limit(40),
     db.from("mc_token_pairs").select("pair_address,dex_id,pair_created_at,price_usd,fdv_usd,market_cap_usd,liquidity_usd,volume_24h_usd,price_change_24h_pct,observed_at,url").eq("mint",mint).order("observed_at",{ascending:false}).limit(20),
     db.from("mc_token_events").select("event_type,event_at,source,confidence,details,created_at").eq("mint",mint).order("created_at",{ascending:false}).limit(35),
     db.from("mc_abandonment_assessments").select("assessed_at,market_pair_age_days,pool_last_activity_at,pool_activity_age_days,liquidity_usd,volume_24h_usd,jupiter_is_verified,jupiter_organic_score,corroborating_sources,research_summary,research_coverage,community_research_priority,risk_flags,assessment_status,evidence,assessor_version").eq("mint",mint).order("assessed_at",{ascending:false}).limit(8),
     db.from("mc_reclamation_cases").select("case_type,title,description,evidence,review_status,created_at,submitter_wallet_verified_at").eq("mint",mint).order("created_at",{ascending:false}).limit(15),
-    readLiveEvidence(mint)
+    readLiveEvidence(mint),
+    readSolanaEvidence(mint)
   ]);
   const failed=[tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult].find(x=>x.error);
   if(failed)return json(res,500,{error:"Could not assemble research evidence.",detail:trimText(failed.error.message,220)});
@@ -161,9 +236,10 @@ export default async function handler(req, res) {
   add("assessment",assessmentResult.data); add("community_case",caseResult.data);
   evidenceManifest.live_dexscreener=live.dexscreener;
   evidenceManifest.live_jupiter=live.jupiter;
+  evidenceManifest.solana_rpc=solana;
   const evidence={mint,assembled_at:new Date().toISOString(),evidence_manifest:evidenceManifest,
-    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status},
-    source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","One pool-account signature sample is not a full token-activity or holder analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them."]};
+    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
+    source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","Largest-account RPC data covers only the top 20 token accounts and is not a full beneficial-holder census; AMM vaults may dominate.","One pool-account signature sample is not a full token-activity analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them."]};
   try {
     const generated=await generateResearch(evidence);
     const summary=trimText(generated.report.executive_summary,1800);
