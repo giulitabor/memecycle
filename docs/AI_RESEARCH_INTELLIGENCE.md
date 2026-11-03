@@ -23,6 +23,7 @@ The service assembles:
 - Up to 8 previous deterministic abandonment assessments.
 - Up to 15 community reclamation submissions, excluding submitter contact details and wallet identifiers.
 - Fresh DexScreener pair data and Jupiter Tokens API v2 metadata where available.
+- Bounded Helius RPC reads for mint initialization, decimals, mint/freeze authorities, and the 20 largest token accounts with parseable account owners. This is a token-account sample, not a complete beneficial-holder census.
 
 Every evidence item is assigned an ID in the stored evidence manifest. AI findings may cite only IDs in that packet. Full source evidence, report JSON, model, prompt version, generation ID, token usage and timestamps are retained for audit.
 
