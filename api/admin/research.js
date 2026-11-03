@@ -3,7 +3,8 @@ import { getVercelOidcToken } from "@vercel/oidc";
 
 export const config = { maxDuration: 60 };
 
-const MODEL = process.env.MEMECYCLE_RESEARCH_MODEL || "deepseek/deepseek-v4.1-flash-1017";
+const AI_PROVIDER = (process.env.MEMECYCLE_AI_PROVIDER || "deepseek").toLowerCase();
+const MODEL = process.env.MEMECYCLE_RESEARCH_MODEL || (AI_PROVIDER === "vercel" ? "deepseek/deepseek-v4.1-flash-1017" : "deepseek-flash");
 const PROMPT_VERSION = "memecycle-evidence-analyst-1.0.0";
 const json = (res, status, body) => res.status(status).json(body);
 const safeArray = (v) => Array.isArray(v) ? v : [];
@@ -158,29 +159,52 @@ ${JSON.stringify(evidence)}`;
 }
 
 async function generateResearch(evidence) {
-  const token = await getVercelOidcToken();
-  if (!token) throw Object.assign(new Error("Vercel AI Gateway identity is unavailable. Enable OIDC for this Vercel project."), { status: 503 });
-  const response = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
+  let endpoint, authorization;
+  if (AI_PROVIDER === "deepseek") {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) throw Object.assign(new Error("DeepSeek is selected but DEEPSEEK_API_KEY is not configured in Vercel. Add the key to the Production environment and redeploy."), { status: 503 });
+    endpoint = "https://api.deepseek.com/chat/completions";
+    authorization = `Bearer ${apiKey}`;
+  } else if (AI_PROVIDER === "vercel") {
+    const token = await getVercelOidcToken();
+    if (!token) throw Object.assign(new Error("Vercel AI Gateway identity is unavailable. Enable OIDC for this Vercel project."), { status: 503 });
+    endpoint = "https://ai-gateway.vercel.sh/v1/chat/completions";
+    authorization = `Bearer ${token}`;
+  } else {
+    throw Object.assign(new Error("Unsupported MEMECYCLE_AI_PROVIDER. Choose deepseek or vercel."), { status: 500 });
+  }
+
+  const requestBody = {
+    model: MODEL,
+    messages: [
+      { role: "system", content: "You are a rigorous forensic analyst. Follow the requested JSON schema exactly. Never fabricate evidence." },
+      { role: "user", content: makePrompt(evidence) }
+    ],
+    temperature: 0.15,
+    max_tokens: 5000,
+    response_format: { type: "json_object" },
+    stream: false
+  };
+  // DeepSeek's current API defaults to thinking mode. Disable it for this
+  // deterministic JSON-report task to keep latency and token use bounded.
+  if (AI_PROVIDER === "deepseek") requestBody.thinking = { type: "disabled" };
+
+  const response = await fetch(endpoint, {
     method: "POST",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: "You are a rigorous forensic analyst. Follow the requested JSON schema exactly. Never fabricate evidence." },
-        { role: "user", content: makePrompt(evidence) }
-      ],
-      temperature: 0.15,
-      max_tokens: 2200,
-      response_format: { type: "json_object" }
-    }),
+    headers: { authorization, "content-type": "application/json" },
+    body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(42000)
   });
   const raw = await response.text();
-  if (!response.ok) throw Object.assign(new Error(`AI Gateway returned HTTP ${response.status}: ${trimText(raw,420)}`), { status: 502 });
+  if (!response.ok) {
+    const detail = trimText(raw,420);
+    const status = response.status === 401 || response.status === 403 ? 502 : 502;
+    throw Object.assign(new Error(`${AI_PROVIDER} provider returned HTTP ${response.status}: ${detail}`), { status });
+  }
   let payload;
-  try { payload = JSON.parse(raw); } catch { throw Object.assign(new Error("AI Gateway returned unreadable JSON."), { status: 502 }); }
+  try { payload = JSON.parse(raw); } catch { throw Object.assign(new Error("AI provider returned unreadable JSON."), { status: 502 }); }
   const content = payload.choices?.[0]?.message?.content;
-  if (typeof content !== "string") throw Object.assign(new Error("AI Gateway returned no research content."), { status: 502 });
+  if (typeof content !== "string" || !content.trim()) throw Object.assign(new Error("AI provider returned no research content."), { status: 502 });
   let report;
   try { report = JSON.parse(content); } catch { throw Object.assign(new Error("AI analyst output did not match valid JSON. No report was saved."), { status: 502 }); }
   const required = ["executive_summary","overall_assessment","confidence","market_analysis","findings","data_gaps","what_to_check_next","abandonment_conclusion"];
