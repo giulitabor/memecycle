@@ -169,7 +169,7 @@ export default async function handler(req, res) {
     const summary=trimText(generated.report.executive_summary,1800);
     const {data:saved,error:saveError}=await db.from("mc_ai_research_reports").insert({
       mint,status:"completed",model:MODEL,prompt_version:PROMPT_VERSION,summary,report:generated.report,
-      evidence_manifest:{evidence_ids:Object.keys(evidenceManifest),coverage:evidence.coverage,source_limitations:evidence.source_limitations},
+      evidence_manifest:evidence,
       generation_id:generated.generationId,input_tokens:generated.usage.prompt_tokens??null,
       output_tokens:generated.usage.completion_tokens??null,created_by:user.id
     }).select("id,mint,status,model,prompt_version,summary,report,created_at,input_tokens,output_tokens").single();
