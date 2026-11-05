@@ -24,6 +24,11 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
       ? String(parsedInfo?.tokenAmount?.amount ?? "")
       : null;
     const zeroBalance = kind === "token_account" && amount === "0";
+    const token2022 = account?.owner === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+    const authorityAvailable = kind === "mint" ? Boolean(parsedInfo?.mintAuthority) : Boolean(parsedInfo?.owner);
+    const excessWithdrawalCandidate = valid && excess > 0n && token2022 && authorityAvailable;
+    const closeAuthority = parsedInfo?.closeAuthority ?? null;
+    const closeAuthorityCompatible = kind === "token_account" && (!closeAuthority || closeAuthority === parsedInfo?.owner);
     return {
       address,
       account_kind: kind,
@@ -36,8 +41,8 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
       close_authority: closeAuthority,
       token_amount_raw: amount,
       zero_token_balance: zeroBalance,
-      potential_close_candidate: zeroBalance,
-      potential_excess_withdrawal_candidate: valid && excess > 0n,
+      potential_close_candidate: zeroBalance && closeAuthorityCompatible,
+      potential_excess_withdrawal_candidate: excessWithdrawalCandidate,
       authority_verified: false,
       transaction_built: false,
       transaction_sent: false,
@@ -60,7 +65,7 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
     row.account?.data?.parsed?.info ?? {}
   ));
   const total = [...(mint ? [mint] : []), ...accounts].reduce((sum, row) => {
-    return sum + (validUInt(row.potential_excess_lamports_raw)
+    return sum + (row.potential_excess_withdrawal_candidate && validUInt(row.potential_excess_lamports_raw)
       ? BigInt(row.potential_excess_lamports_raw)
       : 0n);
   }, 0n);
