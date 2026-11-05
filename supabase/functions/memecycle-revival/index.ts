@@ -2,11 +2,12 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreRevival } from "./scoring.js";
 import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
+import { aggregateNonPoolHolders } from "./holder-distribution.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } });
-const VERSION = "memecycle-revival-0.1.0";
+const VERSION = "memecycle-revival-0.2.0";
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json", "cache-control": "no-store" }
 });
@@ -86,21 +87,14 @@ async function investigateToken(token: any, endpoint: string) {
       amount: String(item?.data?.parsed?.info?.tokenAmount?.amount ?? topAccounts[i]?.amount ?? "0")
     }));
   }
-  const grouped = new Map<string, bigint>();
-  for (const row of owners) {
-    try {
-      const key = row.owner || row.account;
-      grouped.set(key, (grouped.get(key) ?? 0n) + BigInt(row.amount || "0"));
-    } catch { /* malformed provider amount is excluded and lowers coverage */ }
-  }
-  let topRaw = 0n;
-  for (const amount of grouped.values()) topRaw += amount;
-  const top20SupplyPct = supplyRaw && /^\d+$/.test(supplyRaw) && BigInt(supplyRaw) > 0n
-    ? Number(topRaw * 1000000n / BigInt(supplyRaw)) / 10000 : null;
-  const holders = [...grouped.entries()].map(([owner, amount]) => ({
-    owner, amount: amount.toString(),
-    supply_pct: supplyRaw && BigInt(supplyRaw) > 0n ? Number(amount * 1000000n / BigInt(supplyRaw)) / 10000 : null
-  })).sort((a,b) => BigInt(b.amount) > BigInt(a.amount) ? 1 : -1);
+  // Exclude the known primary DEX pool address from beneficial-holder concentration.
+  // A pool's token reserve is market liquidity, not proof of a single person's ownership.
+  const holderDistribution = aggregateNonPoolHolders(
+    owners,
+    supplyRaw,
+    token.primary_pair_address ? [token.primary_pair_address] : []
+  );
+  const { holders, top20SupplyPct } = holderDistribution;
 
   let poolActivityAt: string | null = null;
   if (token.primary_pair_address) {
@@ -130,10 +124,15 @@ async function investigateToken(token: any, endpoint: string) {
   await storeEvidence(mint, "freeze_authority", source, "observed", "Freeze authority field read from the parsed mint account at observation time.", {
     freeze_authority: info.freezeAuthority ?? null, revoked: info.freezeAuthority == null
   }, info.freezeAuthority);
-  await storeEvidence(mint, "holder_distribution", source, owners.length ? "partial" : "observed",
-    "Top 20 largest token accounts only. Accounts are grouped by parsed owner where available; this is not a complete holder census and may include pools, custodians, burn or program accounts.", {
-      top_account_count: topAccounts.length, distinct_owner_or_account_count: grouped.size,
-      top20_supply_pct: top20SupplyPct, largest_accounts: holders.slice(0,20)
+  await storeEvidence(mint, "holder_distribution", source, holderDistribution.includedAccountCount ? "partial" : "observed",
+    "Largest token accounts returned by Solana RPC, grouped by parsed token owner. The known primary DEX pool address is excluded from beneficial-holder concentration. This is not a complete holder census and may still include custodians, burn or other program accounts.", {
+      top_account_count: topAccounts.length,
+      included_non_pool_token_account_count: holderDistribution.includedAccountCount,
+      excluded_primary_pool_account_count: holderDistribution.excludedPoolAccountCount,
+      invalid_account_amount_count: holderDistribution.invalidAccountCount,
+      distinct_non_pool_owner_count: holderDistribution.distinctOwnerCount,
+      top20_supply_pct: top20SupplyPct,
+      largest_non_pool_accounts: holders.slice(0,20)
     });
   if (poolActivityAt) await storeEvidence(mint, "pool_activity", source, "partial",
     "Latest signature on the recorded primary DEX pool account only; this does not represent all token transfers, holders or community activity.", {
@@ -176,7 +175,9 @@ async function investigateToken(token: any, endpoint: string) {
     providers: ["Solana JSON-RPC", ...(pump ? ["pumpdata.fun"] : []), ...(Object.keys(jupiter).length ? ["Jupiter Tokens API v2"] : [])],
     mint, observed_at: new Date().toISOString(), mint_authority: info.mintAuthority ?? null,
     freeze_authority: info.freezeAuthority ?? null, supply_raw: supplyRaw, decimals: Number(info.decimals),
-    top20_supply_pct: top20SupplyPct, top20_scope: "largest token accounts, not full beneficial-owner distribution",
+    top20_supply_pct: top20SupplyPct, top20_scope: "largest non-pool token accounts grouped by parsed owner; known primary DEX pool address excluded; not a full beneficial-owner distribution",
+    excluded_primary_pool_account_count: holderDistribution.excludedPoolAccountCount,
+    included_non_pool_token_account_count: holderDistribution.includedAccountCount,
     pool_activity_at: poolActivityAt, pair_age_days: pairAgeDays, pool_activity_age_days: poolActivityAgeDays,
     creator_candidate: creatorCandidate, pumpfun_provider_evidence: pump ?? null,
     jupiter_provider_evidence: jupiter,

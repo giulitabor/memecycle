@@ -20,15 +20,6 @@
     {
       "path": "/api/cron/revival",
       "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/cron/verify-pipeline",
-      "schedule": "30 20 5 11 *"
     }
-  ],
-  "functions": {
-    "api/cron/verify-pipeline.js": {
-      "maxDuration": 300
-    }
-  }
+  ]
 }

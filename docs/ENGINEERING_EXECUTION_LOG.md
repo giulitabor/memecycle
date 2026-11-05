@@ -214,3 +214,61 @@ Started: 2026-11-05 (Europe/Rome)
 - Verified the production Bitquery token is present, non-empty and not a placeholder (token value intentionally not recorded).
 - Verified the production Helius RPC setting is an HTTPS URL on `mainnet.helius-rpc.com` with an API-key query parameter (credential intentionally not recorded).
 - These checks establish configuration shape only; successful provider authentication and historical archive entitlement must be confirmed by the scheduled worker response.
+
+
+### Pool-aware holder concentration correction — 2026-11-05
+- Live revival investigation showed the largest token account's parsed owner was the primary DEX pool address and its balance equalled 100% of mint supply. The prior calculation treated this pool reserve as beneficial-holder concentration.
+- Added a pure holder-distribution helper that excludes the explicitly known primary pool address (both account and parsed-owner matches), consolidates remaining accounts by parsed owner, and returns unknown concentration when no non-pool sample or valid supply exists.
+- Revival evidence now records excluded pool account count, included non-pool token-account count, invalid account amount count, distinct non-pool owner count, and the limited top-account sample scope.
+- Added five Node regression tests for pool exclusion, missing parsed owner, owner aggregation, invalid supply and pool-only samples.
+- This change does not claim a full holder census and does not alter publication, outreach, consent or wallet-action controls.
+
+
+### Pipeline smoke-test completion and temporary route removal — 2026-11-05
+- Vercel runtime logs confirm the protected `/api/cron/verify-pipeline` request was sent by `vercel-cron/1.0` with the required secret/configuration present.
+- Sequential production smoke test completed: discovery HTTP 200 (partial because Bitquery archive returned 403), monitor HTTP 200 (succeeded, one record checked; no pool-signature RPC was needed for that record), revival HTTP 200 (succeeded, one token investigated, seven evidence records and one assessment written).
+- The temporary annual 5 November verification cron and its route are removed from this branch after successful execution, preventing an unintended yearly repeat.
+- Historical archive blocker confirmed: Bitquery's documented Solana archive dataset requires an archive add-on; the configured token receives HTTP 403. No paid plan or add-on was purchased. See https://docs.bitquery.io/docs/blockchain/Solana/Pumpfun/Pump-Fun-API/.
+- Current candidate archive remains very young: oldest persisted discovery records begin 2 November 2026. This is not enough historical depth to validate actual abandoned-project recovery. Keep this milestone open until a permitted historical source supplies older launches and the monitor/revival workers have processed a representative batch.
+- No live public archive record, outreach, relaunch, token transfer, or wallet action was performed.
+
+
+### Historical source investigation — 2026-11-05
+- Confirmed the production Bitquery archive request returned HTTP 403 while the cron runtime confirmed a token is configured. Bitquery documentation says the Solana archive dataset requires an archive add-on; exact cause of this specific 403 remains unconfirmed. No paid plan/add-on was purchased.
+- Identified a public Hugging Face dataset, `loopholetape/pumpfun-launches`, under CC BY 4.0, with approximately 2.42 million launch records from 2026-08-31 through 2026-10-29. Its fields include mint, creator and launch time.
+- Reviewed its known issues: single-recorder coverage gaps, pre-2026-09-27 decoder undercount, non-random early-feature sampling, and a `rugged` label that is a dataset rule rather than proof of fraud or abandonment.
+- Reviewed Hugging Face Dataset Viewer documentation for bounded `/filter` requests (100 rows max) and pagination.
+- Source review is documented in `docs/HISTORICAL_ARCHIVE_SOURCE_REVIEW.md`. The dataset is not integrated yet: endpoint access, `partial=false`, pagination and sample chain verification must pass first.
+
+
+### Monitor queue starvation correction — 2026-11-05
+- Found a no-pair branch in monitor v0.3.0 that wrote a market-pair data gap and then continued without inserting an `mc_abandonment_assessments` row.
+- The monitor queue excludes recently assessed mints to progress through the archive. Without an assessment row, a no-pair mint remained eligible and could be selected repeatedly, starving later tokens.
+- Added a no-pair assessment builder and monitor v0.4.0. It writes an explicit `insufficient_evidence` assessment with null market fields, zero coverage, no risk flags, and publication/auto-publication disabled. It records only the observed DexScreener no-pair response; it does not fabricate pool, holder, or chain activity.
+- The monitor now fails the per-token run if this assessment insert fails, rather than silently skipping the queue checkpoint.
+- Added two Node regression tests. The combined seven-test holder/no-pair suite passed with Node's built-in test runner.
+- This change has not been deployed to production; the existing deployed monitor remains v0.3.0 until reviewed, merged and deployed.
+
+
+### First live on-chain investigation detail — 2026-11-05
+- Investigated mint `C3A64RsYtc1WT5AHGQ7oA7VUDUgCXhvr4u2qA1TcS5wF` using Solana JSON-RPC. The mint account reports 6 decimals and supply `1000000000000000` raw units; mint and freeze authorities are both revoked at observation time.
+- The sole largest token account's parsed owner is `BCGxtjq8qmo8LSq4wEeM1jY9m2mcyq4n4eVX9286gPcS`, which is also the recorded primary DEX pool address. Its 100% reserve explains why the previous holder-concentration calculation was invalid; it is not evidence that a person owns 100% of supply.
+- One latest-signature lookup on that pool returned 2026-11-02 00:08:11 UTC. The pool was only about 3.88 days old at assessment time, so this is not a dormant-project finding.
+- The fee payer from the oldest available initializeMint transaction is a creator candidate, not verified identity. It matched the pumpdata.fun creator field; pumpdata.fun reports 197 earlier launches and zero graduations for that wallet. This is provider-reported creator-history context, not independent proof of ownership or intent.
+- The assessment remains `insufficient_evidence`; no recovery case, publication, outreach, or wallet action was created.
+- Combined seven-test Node regression suite passed. The new monitor no-pair assessment path is not yet deployed.
+
+
+### CI verification — 2026-11-05
+- GitHub Actions run `MEMECYCLE CI #77` completed successfully on the final PR head.
+- Application tests: 19 passed, 0 failed.
+- Vite production build: passed.
+- Deno checks: discovery worker, monitor function and revival function all passed.
+- Revival queue-policy Deno tests: 7 passed, 0 failed.
+- The PR remains unmerged and no production deployment was triggered.
+
+
+### Final read-only production snapshot — 2026-11-05 21:45 UTC
+- Database totals after the scheduled smoke test: 180 tokens, 177 snapshots, 1 revival assessment, 7 on-chain evidence records, 1 successful on-chain research job, 0 recovery cases, 0 project identities, and 0 abandonment assessments.
+- Persisted discovery window: oldest `first_seen_at` 2026-11-02 16:21:52 UTC; newest 2026-11-05 21:18:33 UTC. The archive is not yet old enough to represent dormant projects.
+- The no-pair monitor fix and pool-aware holder calculation remain in PR #4 only; production Edge Functions have not been changed.
