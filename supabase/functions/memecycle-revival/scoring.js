@@ -19,7 +19,8 @@ export function scoreRevival(input = {}) {
   if (typeof input.jupiterSuspicious === "boolean") viabilityParts.push({ score: input.jupiterSuspicious ? 0 : 20, max: 20 });
   if (Number.isFinite(input.liquidityUsd)) viabilityParts.push({ score: input.liquidityUsd >= 1000 ? 10 : 0, max: 10 });
   if (Number.isFinite(input.jupiterOrganicScore)) viabilityParts.push({ score: input.jupiterOrganicScore >= 60 ? 10 : input.jupiterOrganicScore >= 30 ? 7 : input.jupiterOrganicScore >= 10 ? 3 : 0, max: 10 });
-  const viabilityScore = viabilityParts.length ? Math.round(viabilityParts.reduce((a,b)=>a+b.score,0) / viabilityParts.reduce((a,b)=>a+b.max,0) * 100) : null;
+  const viabilityWeight = viabilityParts.reduce((a,b)=>a+b.max,0);
+  const viabilityScore = viabilityWeight >= 50 ? Math.round(viabilityParts.reduce((a,b)=>a+b.score,0) / viabilityWeight * 100) : null;
 
   let communityScore = null;
   const communityParts = [];
@@ -33,22 +34,24 @@ export function scoreRevival(input = {}) {
   const authorityScore = input.authorityStatus === "independently_verified" ? 100
     : input.authorityStatus === "candidate_authority" ? 50
     : input.authorityStatus === "wallet_control_verified" ? 25
+    : input.authorityStatus === "disputed" || input.authorityStatus === "revoked" ? 0
     : identity === "verified" ? 40
-    : identity === "corroborated" ? 20 : 0;
+    : identity === "corroborated" ? 20 : null;
 
   const riskParts = [];
-  if (typeof input.jupiterSuspicious === "boolean") riskParts.push(input.jupiterSuspicious ? 40 : 0);
-  if (typeof input.mintAuthorityActive === "boolean") riskParts.push(input.mintAuthorityActive ? 15 : 0);
-  if (typeof input.freezeAuthorityActive === "boolean") riskParts.push(input.freezeAuthorityActive ? 15 : 0);
-  if (Number.isFinite(input.top20SupplyPct)) riskParts.push(input.top20SupplyPct > 70 ? 20 : input.top20SupplyPct > 50 ? 10 : 0);
-  if (Number.isFinite(input.liquidityUsd)) riskParts.push(input.liquidityUsd < 500 ? 10 : 0);
-  const riskScore = riskParts.length ? Math.min(100, riskParts.reduce((a,b)=>a+b,0)) : null;
+  if (typeof input.jupiterSuspicious === "boolean") riskParts.push({ score: input.jupiterSuspicious ? 40 : 0, max: 40 });
+  if (typeof input.mintAuthorityActive === "boolean") riskParts.push({ score: input.mintAuthorityActive ? 15 : 0, max: 15 });
+  if (typeof input.freezeAuthorityActive === "boolean") riskParts.push({ score: input.freezeAuthorityActive ? 15 : 0, max: 15 });
+  if (Number.isFinite(input.top20SupplyPct)) riskParts.push({ score: input.top20SupplyPct > 70 ? 20 : input.top20SupplyPct > 50 ? 10 : 0, max: 20 });
+  if (Number.isFinite(input.liquidityUsd)) riskParts.push({ score: input.liquidityUsd < 500 ? 10 : 0, max: 10 });
+  const riskWeight = riskParts.reduce((a,b)=>a+b.max,0);
+  const riskScore = riskWeight >= 50 ? Math.min(100, Math.round(riskParts.reduce((a,b)=>a+b.score,0) / riskWeight * 100)) : null;
 
   const dataConfidenceScore = Math.round(measured / 10 * 100);
   const opportunityInputs = [viabilityScore, communityScore, dormancyScore, riskScore];
   const known = opportunityInputs.filter(value => value !== null);
   const opportunityScore = known.length >= 3
-    ? Math.max(0, Math.min(100, Math.round((viabilityScore ?? 0) * 0.35 + (communityScore ?? 0) * 0.25 + (dormancyScore ?? 0) * 0.15 + authorityScore * 0.15 + (100 - (riskScore ?? 100)) * 0.10)))
+    ? Math.max(0, Math.min(100, Math.round((viabilityScore ?? 0) * 0.35 + (communityScore ?? 0) * 0.25 + (dormancyScore ?? 0) * 0.15 + (authorityScore ?? 0) * 0.15 + (100 - (riskScore ?? 100)) * 0.10)))
     : null;
 
   let assessmentStatus = "insufficient_evidence";
