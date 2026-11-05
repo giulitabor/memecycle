@@ -101,3 +101,8 @@ Deterministic parsers and scoring produce measurements. AI explains, connects an
 ## Implemented reference pointers
 
 The revival evidence manifest now stores canonical Solana Explorer links, DexScreener token/pair links, the launch transaction link when available, and exact-mint Hugging Face Dataset Viewer filter URLs for the four dataset configurations. The manifest also records the CC BY 4.0 attribution and explicitly marks the dataset lookup as `reference_only_not_fetched`. This keeps MEMECYCLE's database as a searchable index rather than a mirror of the dataset. The source-query pilot has now retrieved one real row and independently corroborated its launch transaction. The daily stratified sampler is implemented on the working branch; after CI and deployment it will index bounded pages, retain selected facts and links, and leave all imported candidates private and unverified.
+
+
+## AI dossier integration
+
+The administrator-triggered AI dossier now includes the token's archive references, linked transaction references and latest value assessments in its evidence packet. Its output includes a dedicated reuse-and-recovery section with historical, research, cultural, technical, recovery and community findings, recommended second uses, candidate recovery leads, and explicit rights/consent/authority gates. The dossier remains on-demand and evidence-constrained; it does not initiate outreach, publish media, relaunch tokens or execute transactions. Evidence IDs are validated against the supplied manifest before the report is saved.
