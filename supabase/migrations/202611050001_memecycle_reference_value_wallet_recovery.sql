@@ -28,6 +28,9 @@ create table if not exists public.mc_archive_references (
 );
 alter table public.mc_archive_references
   add column if not exists external_record_id text not null default '';
+update public.mc_archive_references set external_record_id='' where external_record_id is null;
+alter table public.mc_archive_references alter column external_record_id set default '';
+alter table public.mc_archive_references alter column external_record_id set not null;
 create unique index if not exists mc_archive_references_identity_idx
   on public.mc_archive_references(network,subject_type,subject_address,source_id,external_record_id);
 create index if not exists mc_archive_references_subject_idx
