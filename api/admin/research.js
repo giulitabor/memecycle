@@ -5,7 +5,7 @@ export const config = { maxDuration: 60 };
 
 const AI_PROVIDER = (process.env.MEMECYCLE_AI_PROVIDER || "deepseek").toLowerCase();
 const MODEL = process.env.MEMECYCLE_RESEARCH_MODEL || (AI_PROVIDER === "vercel" ? "deepseek/deepseek-v4.1-flash-1017" : "deepseek-flash");
-const PROMPT_VERSION = "memecycle-evidence-analyst-1.0.0";
+const PROMPT_VERSION = "memecycle-evidence-analyst-1.1.0";
 const json = (res, status, body) => res.status(status).json(body);
 const safeArray = (v) => Array.isArray(v) ? v : [];
 const trimText = (v, n=1800) => String(v ?? "").slice(0,n);
@@ -131,6 +131,11 @@ STRICT RULES:
 - A low liquidity/volume snapshot is not a trend. Describe trends only when multiple dated observations support them.
 - Jupiter verification/organic score are provider signals, not independent proof.
 - Community submissions are allegations unless corroborated. A verified wallet signature proves submitter control only, not ownership or authority over the token.
+- Treat deterministic reuse-value scores as evidence summaries, not financial valuations or token-price signals.
+- A dataset licence applies to the dataset itself; it does not automatically grant rights to linked artwork, metadata, names or community content.
+- Do not recommend republishing, relicensing, commercializing or reusing third-party media when rights are unknown or restricted.
+- Do not propose a token relaunch, community contact or asset movement unless authority and consent are independently verified.
+- A rent candidate is only a lead. A wallet owner must review and sign any separate transaction; no transaction is authorized by this dossier.
 - Use the exact evidence IDs supplied. Every material finding must cite one or more evidence IDs. Do not invent IDs.
 - If evidence is sparse, say so and lower confidence. No buy/sell recommendations or price predictions.
 - Output valid JSON only, no markdown fences, matching this schema:
@@ -143,7 +148,7 @@ STRICT RULES:
  "market_analysis":{"current_state":"string","observed_trend":"string","liquidity_assessment":"string","volume_assessment":"string","historical_comparison":"string"},
  "creator_and_launch_analysis":{"findings":["string"],"limitations":"string"},
  "on_chain_and_holder_analysis":{"findings":["string"],"limitations":"string"},
- "community_and_reclamation":{"findings":["string"],"disputes_or_claims":["string"],"limitations":"string"},
+ "community_and_reclamation":{"findings":["string"],"disputes_or_claims":["string"],"limitations":"string"},\n "reuse_and_recovery_value":{"historical_value":"string","research_value":"string","cultural_value":"string","technical_value":"string","recovery_value":"string","community_value":"string","recommended_second_uses":[{"use":"string","evidence_refs":["id"],"rights_and_consent_gate":"string","confidence":"low|medium|high"}],"recovery_candidates":[{"type":"rent_excess|zero_balance_account|metadata|dataset|other","description":"string","authority_status":"verified|unverified|unknown","user_action_required":"string","evidence_refs":["id"]}],"limitations":"string"},
  "risk_factors":[{"risk":"string","severity":"low|medium|high|unknown","evidence_refs":["id"],"why_it_matters":"string"}],
  "positive_signals":[{"signal":"string","evidence_refs":["id"],"qualification":"string"}],
  "findings":[{"finding":"string","type":"observed_fact|provider_claim|inference|unknown","confidence":"low|medium|high","evidence_refs":["id"],"caveat":"string"}],
@@ -207,7 +212,7 @@ async function generateResearch(evidence) {
   if (typeof content !== "string" || !content.trim()) throw Object.assign(new Error("AI provider returned no research content."), { status: 502 });
   let report;
   try { report = JSON.parse(content); } catch { throw Object.assign(new Error("AI analyst output did not match valid JSON. No report was saved."), { status: 502 }); }
-  const required = ["executive_summary","overall_assessment","confidence","market_analysis","findings","data_gaps","what_to_check_next","abandonment_conclusion"];
+  const required = ["executive_summary","overall_assessment","confidence","market_analysis","findings","data_gaps","what_to_check_next","abandonment_conclusion","reuse_and_recovery_value"];
   if (!required.every(k => Object.hasOwn(report,k)) || !Array.isArray(report.findings) || !Array.isArray(report.data_gaps)) {
     throw Object.assign(new Error("AI analyst output failed report validation. No report was saved."), { status: 502 });
   }
@@ -216,6 +221,10 @@ async function generateResearch(evidence) {
     finding.evidence_refs = safeArray(finding.evidence_refs).filter(id => allowed.has(id));
   }
   for (const group of [...safeArray(report.risk_factors), ...safeArray(report.positive_signals)]) {
+    group.evidence_refs = safeArray(group.evidence_refs).filter(id => allowed.has(id));
+  }
+  const reuse = report.reuse_and_recovery_value || {};
+  for (const group of [...safeArray(reuse.recommended_second_uses), ...safeArray(reuse.recovery_candidates)]) {
     group.evidence_refs = safeArray(group.evidence_refs).filter(id => allowed.has(id));
   }
   return { report, usage: payload.usage ?? {}, generationId: payload.id ?? null };
@@ -239,7 +248,7 @@ export default async function handler(req, res) {
   const {data:recent,error:recentError}=await db.from("mc_ai_research_reports").select("id,created_at").eq("mint",mint).eq("status","completed").gte("created_at",new Date(Date.now()-10*60*1000).toISOString()).order("created_at",{ascending:false}).limit(1);
   if(recentError)return json(res,500,{error:"Could not check recent research runs."});
   if(recent?.length)return json(res,429,{error:"This token was researched in the last ten minutes. Open the existing report or wait before running it again.",report_id:recent[0].id});
-  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult,live,solana] = await Promise.all([
+  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult,archiveReferenceResult,archiveTransactionReferenceResult,valueAssessmentResult,live,solana] = await Promise.all([
     db.from("mc_tokens").select("mint,chain,name,symbol,classification,lifecycle_status,first_seen_at,last_activity_at,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,data_completeness,reclamation_score,score_breakdown,risk_flags,source_provenance,discovery_sources,primary_pair_address,dex_url,visibility").eq("mint",mint).maybeSingle(),
     db.from("mc_snapshots").select("observed_at,price_usd,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,source,fdv_usd,price_change_24h_pct,pair_address,dex_id").eq("mint",mint).order("observed_at",{ascending:false}).limit(40),
     db.from("mc_token_pairs").select("pair_address,dex_id,pair_created_at,price_usd,fdv_usd,market_cap_usd,liquidity_usd,volume_24h_usd,price_change_24h_pct,observed_at,url").eq("mint",mint).order("observed_at",{ascending:false}).limit(20),
@@ -250,10 +259,13 @@ export default async function handler(req, res) {
     db.from("mc_revival_assessments").select("id,assessed_at,assessor_version,dormancy_score,revival_viability_score,authority_clarity_score,community_signal_score,data_confidence_score,risk_score,opportunity_score,assessment_status,evidence_manifest,limitations,rationale").eq("mint",mint).order("assessed_at",{ascending:false}).limit(5),
     db.from("mc_project_identities").select("project_name,website_url,social_links,contact_channels,identity_status,authority_status,consent_status,evidence,last_verified_at,updated_at").eq("mint",mint).maybeSingle(),
     db.from("mc_revival_cases").select("id,assessment_id,case_status,authority_status,consent_status,proposed_recovery_plan,risk_register,requires_human_approval,approved_at,created_at,updated_at,closed_at").eq("mint",mint).order("created_at",{ascending:false}).limit(10),
+    db.from("mc_archive_references").select("id,subject_type,subject_address,source_id,external_record_id,locator_url,source_revision,content_hash,licence_id,attribution,retrieval_status,evidence_role,observed_at,last_checked_at,normalized_facts,coverage_notes").eq("subject_address",mint).order("observed_at",{ascending:false}).limit(60),
+    db.from("mc_archive_references").select("id,subject_type,subject_address,source_id,external_record_id,locator_url,source_revision,content_hash,licence_id,attribution,retrieval_status,evidence_role,observed_at,last_checked_at,normalized_facts,coverage_notes").eq("subject_type","transaction").contains("normalized_facts",{mint}).order("observed_at",{ascending:false}).limit(30),
+    db.from("mc_value_assessments").select("id,assessed_at,assessor_version,historical_score,research_score,cultural_score,technical_score,recovery_score,community_score,overall_value_band,evidence_confidence,rights_status,authority_status,consent_status,evidence_refs,findings,limitations").eq("mint",mint).order("assessed_at",{ascending:false}).limit(5),
     readLiveEvidence(mint),
     readSolanaEvidence(mint)
   ]);
-  const failed=[tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult].find(x=>x.error);
+  const failed=[tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult,archiveReferenceResult,archiveTransactionReferenceResult,valueAssessmentResult].find(x=>x.error);
   if(failed)return json(res,500,{error:"Could not assemble research evidence.",detail:trimText(failed.error.message,220)});
   if(!tokenResult.data)return json(res,404,{error:"Token not found in the MEMECYCLE archive. Run discovery first."});
   const evidenceManifest={};
@@ -265,6 +277,9 @@ export default async function handler(req, res) {
   add("onchain_evidence",onchainEvidenceResult.data); add("revival_assessment",revivalAssessmentResult.data);
   evidenceManifest.project_identity=identityResult.data??null;
   add("revival_case",revivalCaseResult.data);
+  add("archive_reference",archiveReferenceResult.data);
+  add("archive_transaction_reference",archiveTransactionReferenceResult.data);
+  add("value_assessment",valueAssessmentResult.data);
   const revivalCaseIds=safeArray(revivalCaseResult.data).map(row=>row.id).filter(Boolean);
   if(revivalCaseIds.length){
     const {data:caseEvents,error:caseEventsError}=await db.from("mc_revival_case_events").select("case_id,event_type,actor,details,created_at").in("case_id",revivalCaseIds).order("created_at",{ascending:false}).limit(40);
@@ -275,8 +290,8 @@ export default async function handler(req, res) {
   evidenceManifest.live_jupiter=live.jupiter;
   evidenceManifest.solana_rpc=solana;
   const evidence={mint,assembled_at:new Date().toISOString(),evidence_manifest:evidenceManifest,
-    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,onchain_evidence:safeArray(onchainEvidenceResult.data).length,revival_assessments:safeArray(revivalAssessmentResult.data).length,project_identity:Boolean(identityResult.data),revival_cases:safeArray(revivalCaseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
-    source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","Largest-account RPC data covers only the top 20 token accounts and is not a full beneficial-holder census; AMM vaults may dominate.","One pool-account signature sample is not a full token-activity analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them."]};
+    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,onchain_evidence:safeArray(onchainEvidenceResult.data).length,revival_assessments:safeArray(revivalAssessmentResult.data).length,project_identity:Boolean(identityResult.data),revival_cases:safeArray(revivalCaseResult.data).length,archive_references:safeArray(archiveReferenceResult.data).length,archive_transaction_references:safeArray(archiveTransactionReferenceResult.data).length,value_assessments:safeArray(valueAssessmentResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
+    source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","Largest-account RPC data covers only the top 20 token accounts and is not a full beneficial-holder census; AMM vaults may dominate.","One pool-account signature sample is not a full token-activity analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them.","Archive references are pointers; availability and rights must be checked at the source. Dataset licence does not confer rights to linked media.","Value scores summarize evidence-backed reuse potential, not financial valuation. Recovery and community scores may remain unassessed until wallet and consent evidence exists."]};
   const {data:researchJob,error:jobError}=await db.from("mc_research_jobs").insert({
     mint,job_type:"ai_dossier",status:"running",priority:70,attempts:1,max_attempts:3,
     locked_at:new Date().toISOString(),locked_by:"api/admin/research"
