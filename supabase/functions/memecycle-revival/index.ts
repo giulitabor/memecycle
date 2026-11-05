@@ -99,10 +99,17 @@ async function investigateToken(token: any, endpoint: string) {
     mintAccount?.value?.space,
     ...accountRows.map((row: any) => row.account?.space)
   ].map(Number).filter((space) => Number.isSafeInteger(space) && space >= 0))];
-  const rentPairs = await Promise.all(rentSizes.map(async (space) => [
-    String(space),
-    String(await rpc(endpoint, "getMinimumBalanceForRentExemption", [space]))
-  ]));
+  const rentPairs: Array<[string, string]> = await Promise.all(rentSizes.map(async (space) => {
+    try {
+      return [
+        String(space),
+        String(await rpc(endpoint, "getMinimumBalanceForRentExemption", [space]))
+      ];
+    } catch {
+      // A rent RPC failure must not discard the rest of the research dossier.
+      return [String(space), ""];
+    }
+  }));
   const rentMinimumBySpace = Object.fromEntries(rentPairs);
   const rentRecovery = assessRentRecovery({
     mintAddress: mint,
