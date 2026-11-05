@@ -29,9 +29,9 @@ export function initAccountExperience(db) {
     if(!data?.length){host.innerHTML='<p class="account-note">Your watchlist is empty. Add a mint address above to start tracking it.</p>';return;}
     host.innerHTML='<h4>Saved tokens ('+data.length+')</h4>'+data.map(item=>'<div class="watchlist-item"><code>'+esc(short(item.mint))+'</code><button type="button" data-remove-watch="'+esc(item.id)+'">Remove</button></div>').join('');
   }
-  async function addMint(){
+  async function addMint(mintOverride){
     if(!currentUser){panel.hidden=false;setMessage('Sign in or create a free account to save tokens.');return;}
-    const value=panel.querySelector('#watchlist-mint').value.trim();
+    const value=String(mintOverride || panel.querySelector('#watchlist-mint').value).trim();
     if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)){setMessage('Enter a valid-looking Solana mint address.',true);return;}
     const {error}=await db.from('mc_user_watchlists').upsert({user_id:currentUser.id,mint:value},{onConflict:'user_id,mint',ignoreDuplicates:true});
     if(error){setMessage('Could not save this token. Please try again.',true);return;}
