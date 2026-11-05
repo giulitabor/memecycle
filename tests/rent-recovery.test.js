@@ -6,7 +6,7 @@ test("reports only lamports above the current rent floor", () => {
   const result = assessRentRecovery({
     mintAddress: "Mint",
     mintAccount: { value: { lamports: 2_000_000, space: 82, owner: "TokenProgram" } },
-    rentMinimumBySpace: { "82": "1_000_000", "165": "2_000_000" }
+    rentMinimumBySpace: { "82": "1000000", "165": "2000000" }
   });
   assert.equal(result.mint.potential_excess_lamports_raw, "1000000");
   assert.equal(result.total_potential_excess_lamports_raw, "1000000");
@@ -20,7 +20,7 @@ test("separates zero-balance close candidates from excess withdrawals", () => {
       { address: "Empty", account: { lamports: 3_000_000, space: 165, owner: "TokenProgram", data: { parsed: { info: { owner: "WalletA", tokenAmount: { amount: "0" } } } } } },
       { address: "Held", account: { lamports: 2_000_000, space: 165, owner: "TokenProgram", data: { parsed: { info: { owner: "WalletB", tokenAmount: { amount: "5" } } } } } }
     ],
-    rentMinimumBySpace: { "165": "2_000_000" }
+    rentMinimumBySpace: { "165": "2000000" }
   });
   assert.equal(result.token_accounts[0].potential_close_candidate, true);
   assert.equal(result.token_accounts[0].potential_excess_lamports_raw, "1000000");
