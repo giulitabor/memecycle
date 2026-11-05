@@ -19,7 +19,7 @@ export default async function handler(req,res){
  if(countError)return res.status(500).json({error:"Could not check recent run limits."});
  if((count||0)>0)return res.status(429).json({error:"A run of this type started in the last five minutes. Please wait before retrying."});
  try{
-  const body=action==="archive_backfill"?{action:"archive_backfill",pages_per_config:5}:{action:action==="discover"?"discover":"monitor",limit:action==="discover"?30:10,backfill_limit:2};
+  const body=action==="archive_backfill"?{action:"archive_backfill",pages_per_config:2}:{action:action==="discover"?"discover":"monitor",limit:action==="discover"?30:10,backfill_limit:2};
   if(action==="monitor"&&process.env.HELIUS_RPC)body.rpc_url=process.env.HELIUS_RPC;
   const response=await fetch(`${(url.endsWith('/')?url.slice(0,-1):url)}/functions/v1/memecycle-${(action==="discover"||action==="archive_backfill")?"worker":"monitor"}`,{
    method:"POST",headers:{"content-type":"application/json","authorization":`Bearer ${service}`,"apikey":service},
