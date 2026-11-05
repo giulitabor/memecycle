@@ -16,6 +16,18 @@ Deno.test("unassessed tokens are prioritised over old assessments", () => {
   assertEquals(batch.map(x => x.mint), [mintB, mintA]);
 });
 
+Deno.test("historical launch time takes priority over recent ingestion time", () => {
+  const { batch } = selectRevivalBatch({
+    nowMs: now, limit: 2,
+    tokens: [
+      { mint: mintA, first_seen_at: "2026-11-02T00:00:00Z", research_priority_at: "2026-11-02T00:00:00Z" },
+      { mint: mintB, first_seen_at: "2026-11-05T00:00:00Z", research_priority_at: "2025-11-05T00:00:00Z" }
+    ],
+    assessments: [], jobs: []
+  });
+  assertEquals(batch.map(x => x.mint), [mintB, mintA]);
+});
+
 Deno.test("fresh assessments are held until the 90-day cooldown expires", () => {
   const { batch } = selectRevivalBatch({
     nowMs: now, limit: 3,
