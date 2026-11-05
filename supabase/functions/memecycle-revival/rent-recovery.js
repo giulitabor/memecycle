@@ -8,6 +8,7 @@ function validUInt(value) {
   return UINT.test(String(value ?? ""));
 }
 
+/** @param {{ mintAddress: string, mintAccount: any, tokenAccounts?: Array<any>, rentMinimumBySpace?: Record<string, string> }} input */
 export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [], rentMinimumBySpace = {} }) {
   const inspect = (address, account, kind, parsedInfo = {}) => {
     const space = Number(account?.space ?? account?.data?.space);
