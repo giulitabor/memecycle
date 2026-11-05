@@ -2,11 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import { initArchiveExperience } from './archive.js';
 import { initAccountExperience } from './account.js';
+import { initAdminConsole } from './admin.js';
 
 const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
 const db = configured ? createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY) : null;
 
+if (window.location.pathname.replace(/\\/$/, '') === '/admin') {
+  initAdminConsole(db);
+} else {
 const icons = {
   leaf:'✳', search:'⌕', archive:'▤', brain:'◈', recycle:'⟳', database:'▦',
   shield:'⬡', arrow:'↗', menu:'☰', pulse:'⌁', lock:'◉'
@@ -159,3 +163,4 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
 loadTokens();
 initArchiveExperience(db);
 initAccountExperience(db);
+}
