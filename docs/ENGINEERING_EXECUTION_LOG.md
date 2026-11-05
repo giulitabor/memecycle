@@ -284,3 +284,12 @@ Started: 2026-11-05 (Europe/Rome)
 - The reference-first design and rent estimator are on branch `agent/memecycle-reference-first-rent-recovery-20261105`; not yet merged or deployed. Historical archive source ingestion and an end-to-end production smoke test remain outstanding.
 
 - CI follow-up: the first hosted run correctly caught two fixture strings containing numeric separators and Deno's inferred `never[]` type for the optional JavaScript sample. Fixtures now use raw integer strings, the helper has JSDoc input types, and the bounded sample is explicitly typed at the TypeScript call site. The next hosted run is the release gate; no new estimator code has been deployed.
+
+
+### 2026-11-05 — Reference-first rent recovery release
+- PR #5 merged to `main` as commit `d784665930dfdf21a8c2ca4b26a3568ed3921839` after hosted CI passed: full Node test suite, Vite production build, and Deno checks for discovery, monitor and revival functions.
+- Deployed the updated `memecycle-revival` Supabase Edge Function as v6 ACTIVE with JWT verification enabled.
+- Verified the live function bundle contains the `rent-recovery.js` helper, calls `getMinimumBalanceForRentExemption`, and records read-only candidate status with transaction construction/submission flags false.
+- `memecycle-monitor` remains v16 ACTIVE with the no-pair insufficient-evidence path; `memecycle-revival` v6 includes pool-aware holder scoring and rent-recovery estimates.
+- No wallet transaction was built or sent. No account was closed, no tokens burned, and no SOL moved. A runtime invocation of the new rent scan has not yet been verified; the production bundle and CI are verified, while the first scheduled/manual research run remains the runtime verification gate.
+- The historical reference-first source strategy is documented. The external archive integration itself is not yet implemented; next work is a bounded source-query pilot with a stable dataset row locator and source revision, then a controlled historical enrichment run.
