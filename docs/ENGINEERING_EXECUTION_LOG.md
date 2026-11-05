@@ -369,3 +369,13 @@ Started: 2026-11-05 (Europe/Rome)
 - Verified the pilot token remains `private` and `unverified`; the dataset creator candidate matches the on-chain launch transaction fee payer. The sample's value assessment is historical 90, research 90, cultural 20, technical 100, with recovery and community unassessed and rights unknown.
 - No user wallet transaction was built or submitted; no tokens were burned; no accounts were closed; no SOL was transferred; no paid archive access was purchased; no token was publicly relaunched.
 - Remaining runtime checks: first daily archive backfill result and a user-initiated wallet scan after the user signs the challenge. These require the scheduled source job and the user's own wallet signature respectively.
+
+
+### 2026-11-05 — AI dossier value/reuse integration (final fifth-milestone extension)
+- PR #8 merged as commit `6d03a8194af866beb2fc4c3af61c59eb2a3238a4` after hosted CI passed: full tests, Vite build, API route syntax checks and all Deno checks.
+- Updated the administrator-triggered evidence analyst to ingest archive references, linked transaction references and the latest `mc_value_assessments` records.
+- Added a required `reuse_and_recovery_value` output section with separate historical, research, cultural, technical, recovery and community findings, recommended second uses, recovery leads and rights/authority/consent gates.
+- The prompt now explicitly distinguishes dataset licensing from rights in linked media, value potential from financial valuation, and recovery candidates from guaranteed proceeds. It forbids unsupported relaunch, outreach, publishing or asset movement recommendations when authority/consent is unknown.
+- Generated evidence references in nested second-use and recovery recommendations are validated against the supplied evidence manifest.
+- Vercel production deployment `dpl_GWnrnrxBtJEGzqDcCAUeDaJQDQ6D` reached READY and is aliased to `https://memecycle.vercel.app`. No Supabase Edge Function redeploy was needed for this API-only change.
+- The AI dossier remains administrator-triggered; no autonomous publishing, outreach or transaction execution was introduced.
