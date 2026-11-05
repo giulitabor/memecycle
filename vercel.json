@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/verify-pipeline",
-      "schedule": "0 20 * * *"
+      "schedule": "30 20 5 11 *"
     }
   ],
   "functions": {
