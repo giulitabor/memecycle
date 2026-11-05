@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import { initArchiveExperience } from './archive.js';
+import { initAccountExperience } from './account.js';
 
 const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
@@ -157,3 +158,4 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
 });
 loadTokens();
 initArchiveExperience(db);
+initAccountExperience(db);
