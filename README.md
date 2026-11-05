@@ -28,7 +28,8 @@ The scheduled server-side discovery, monitor and archive-sampling runners requir
 
 ## Automated engine
 - Daily discovery at 07:00 UTC from DexScreener token profiles, boosts and GeckoTerminal trending pools.
-- Daily lifecycle monitoring at 08:00 UTC across the oldest-updated archive records (up to 50 per run; rows rotate as they are updated).\n- Daily historical archive sampling at 12:00 UTC: up to 400 Pump.fun launch rows across the `launches_legacy` and `launches` dataset configs, selected from 100 deterministic strata. The worker stores selected facts, row locators, revision and content hashes; it does not mirror the full dataset.
+- Daily lifecycle monitoring at 08:00 UTC across the oldest-updated archive records (up to 50 per run; rows rotate as they are updated).
+- Daily historical archive sampling at 12:00 UTC: up to 400 Pump.fun launch rows across the `launches_legacy` and `launches` dataset configs, selected from 100 deterministic strata. The worker stores selected facts, row locators, revision and content hashes; it does not mirror the full dataset.
 - Limited on-chain activity sampling on up to five tokens per monitor run, using the configured Helius RPC URL and inspecting the three largest token accounts per mint. This is explicitly partial coverage, not an exhaustive transaction history.
 - A preliminary abandonment research queue flags only low-confidence leads when a pool is at least 90 days old, liquidity and 24-hour volume are very low, and all three sampled top-holder accounts show no transaction in 90 days. Every lead remains unverified and private.
 - Each monitor pass records a fresh market snapshot, reassesses market-state classification and logs changes.
@@ -40,7 +41,9 @@ The scheduled server-side discovery, monitor and archive-sampling runners requir
 ## Implemented
 - Read-only Solana rent-recovery analysis in the revival investigator: compares the mint and sampled largest token accounts against the live rent-exempt minimum, records possible excess and zero-balance close candidates, and never builds or sends transactions.
 - Reference-first archive pointers in revival dossiers: canonical Solana Explorer, DexScreener, launch-signature and exact-mint Hugging Face Dataset Viewer lookup links; no bulk dataset or media copies.
-- Reference-first archive graph in `mc_archive_references`, with canonical addresses, external row locators, dataset revisions, SHA-256 fingerprints, attribution, licence and retrieval status. The source rows and media are not bulk-copied.\n- Evidence-weighted reuse-value assessments in `mc_value_assessments`, separating historical, research, cultural, technical, recovery and community potential from legal rights, authority and consent.\n- Authenticated wallet-specific rent scanner: verifies a one-time Ed25519 message signature, scans the user's SPL Token and Token-2022 accounts, and stores private candidates. It never builds or sends transactions.
+- Reference-first archive graph in `mc_archive_references`, with canonical addresses, external row locators, dataset revisions, SHA-256 fingerprints, attribution, licence and retrieval status. The source rows and media are not bulk-copied.
+- Evidence-weighted reuse-value assessments in `mc_value_assessments`, separating historical, research, cultural, technical, recovery and community potential from legal rights, authority and consent.
+- Authenticated wallet-specific rent scanner: verifies a one-time Ed25519 message signature, scans the user's SPL Token and Token-2022 accounts, and stores private candidates. It never builds or sends transactions.
 - Public archive search, filters and public-only token detail.
 - Community reclamation submissions and RLS-enforced authenticated moderation.
 - Discovery ingestion, market snapshots, pool observations, provenance, classification history and data-gap tracking.
