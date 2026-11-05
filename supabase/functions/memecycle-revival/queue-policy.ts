@@ -1,4 +1,4 @@
-export type QueueToken = { mint: string; first_seen_at?: string | null };
+export type QueueToken = { mint: string; first_seen_at?: string | null; research_priority_at?: string | null };
 export type QueueAssessment = { mint: string; assessed_at: string };
 export type QueueJob = {
   mint: string | null;
@@ -71,10 +71,13 @@ export function selectRevivalBatch<T extends QueueToken>(input: {
   eligible.sort((a, b) => {
     const aa = latestAssessmentByMint.get(a.mint)?.assessed_at;
     const bb = latestAssessmentByMint.get(b.mint)?.assessed_at;
-    if (!aa && !bb) return Date.parse(a.first_seen_at || "") - Date.parse(b.first_seen_at || "");
+    const aPriority = a.research_priority_at || a.first_seen_at || "";
+    const bPriority = b.research_priority_at || b.first_seen_at || "";
+    if (!aa && !bb) return Date.parse(aPriority) - Date.parse(bPriority);
     if (!aa) return -1;
     if (!bb) return 1;
-    return Date.parse(aa) - Date.parse(bb);
+    if (aa && bb) return Date.parse(aa) - Date.parse(bb);
+    return Date.parse(aPriority) - Date.parse(bPriority);
   });
 
   return {
