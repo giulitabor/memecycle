@@ -122,8 +122,8 @@ async function backfillHuggingFace(pagesPerConfig:number){
   throw error;
  }
  const configs=["launches_legacy","launches"],keys=configs.map(config=>({source_key:"hf_pumpfun_"+config,provider:"huggingface",endpoint:"https://datasets-server.huggingface.co/rows",enabled:true,cursor_value:0,records_seen:0}));
- const {error:seedError}=await db.from("mc_discovery_sources").upsert(keys,{onConflict:"source_key",ignoreDuplicates:true});if(seedError)throw seedError;
- const {data:sourceRows,error:sourceError}=await db.from("mc_discovery_sources").select("source_key,enabled,cursor_value,records_seen").in("source_key",keys.map(x=>x.source_key));if(sourceError)throw sourceError;
+ const {error:seedError}=await db.from("mc_discovery_sources").upsert(keys,{onConflict:"source_key",ignoreDuplicates:true});if(seedError){await db.from("mc_ingestion_runs").update({status:"failed",error_count:1,summary:{dataset,error:seedError.message},finished_at:new Date().toISOString()}).eq("id",runId);throw seedError;}
+ const {data:sourceRows,error:sourceError}=await db.from("mc_discovery_sources").select("source_key,enabled,cursor_value,records_seen").in("source_key",keys.map(x=>x.source_key));if(sourceError){await db.from("mc_ingestion_runs").update({status:"failed",error_count:1,summary:{dataset,error:sourceError.message},finished_at:new Date().toISOString()}).eq("id",runId);throw sourceError;}
  const sourceMap=new Map((sourceRows??[]).map((x:any)=>[x.source_key,x]));
  const summary:any={dataset,revision,last_modified:datasetInfo.lastModified??null,license:"CC BY 4.0",strategy:"deterministic 100-stratum sample; 100 rows per sampled page; pointers and selected facts only",pages:[],limitations:[
   "This is a stratified sample, not a full mirror or complete token census.",
@@ -177,12 +177,12 @@ async function backfillHuggingFace(pagesPerConfig:number){
  try{
   const latest:any=await getHuggingFace("https://huggingface.co/api/datasets/"+dataset);
   revisionChanged=String(latest.sha??"")!==revision;
- }catch(error){summary.revision_recheck_error=String(error).slice(0,200);}
+ }catch(error){revisionRecheckFailed=true;summary.revision_recheck_error=String(error).slice(0,200);}
  if(revisionChanged){
   summary.revision_changed_during_run=true;
   for(const config of configs)await db.from("mc_archive_references").update({retrieval_status:"stale",coverage_notes:"Dataset revision changed during this sampling run; re-fetch before relying on the row. "+summary.limitations.join(" ")}).eq("source_id","huggingface:"+dataset).eq("source_revision",revision).gte("observed_at",new Date(Date.now()-15*60_000).toISOString());
  }
- const status=errorCount?(totalRows?"partial":"failed"):revisionChanged?"partial":"succeeded";
+ const status=errorCount?(totalRows?"partial":"failed"):(revisionChanged||revisionRecheckFailed)?"partial":"succeeded";
  summary.total_rows_sampled=totalRows;summary.unique_tokens_upserted=totalTokens;summary.reference_rows_upserted=totalRefs;summary.error_count=errorCount;
  summary.page_policy="Up to 5 pages per configuration per run; each page is at most 100 rows; cursor advances through 100 evenly spaced strata.";
  await db.from("mc_ingestion_runs").update({status,candidates_seen:totalRows,tokens_upserted:totalTokens,snapshots_inserted:0,classifications_written:0,error_count:errorCount,summary,finished_at:new Date().toISOString()}).eq("id",runId);
