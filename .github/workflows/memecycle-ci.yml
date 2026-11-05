@@ -51,5 +51,7 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/memecycle-monitor/index.ts
       - name: Check revival function
         run: deno check --node-modules-dir=auto supabase/functions/memecycle-revival/index.ts
+      - name: Check wallet recovery function
+        run: deno check --node-modules-dir=auto supabase/functions/memecycle-wallet-recovery/index.ts
       - name: Test revival queue policy
         run: deno test --node-modules-dir=auto supabase/functions/memecycle-revival/queue-policy.deno.ts
