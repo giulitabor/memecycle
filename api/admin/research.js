@@ -277,6 +277,11 @@ export default async function handler(req, res) {
   const evidence={mint,assembled_at:new Date().toISOString(),evidence_manifest:evidenceManifest,
     coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,onchain_evidence:safeArray(onchainEvidenceResult.data).length,revival_assessments:safeArray(revivalAssessmentResult.data).length,project_identity:Boolean(identityResult.data),revival_cases:safeArray(revivalCaseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
     source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","Largest-account RPC data covers only the top 20 token accounts and is not a full beneficial-holder census; AMM vaults may dominate.","One pool-account signature sample is not a full token-activity analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them."]};
+  const {data:researchJob,error:jobError}=await db.from("mc_research_jobs").insert({
+    mint,job_type:"ai_dossier",status:"running",priority:70,attempts:1,max_attempts:3,
+    locked_at:new Date().toISOString(),locked_by:"api/admin/research"
+  }).select("id").single();
+  if(jobError)return json(res,500,{error:"Could not queue research job.",detail:trimText(jobError.message,220)});
   try {
     const generated=await generateResearch(evidence);
     const summary=trimText(generated.report.executive_summary,1800);
@@ -286,10 +291,15 @@ export default async function handler(req, res) {
       generation_id:generated.generationId,input_tokens:generated.usage.prompt_tokens??null,
       output_tokens:generated.usage.completion_tokens??null,created_by:user.id
     }).select("id,mint,status,model,prompt_version,summary,report,created_at,input_tokens,output_tokens").single();
-    if(saveError)return json(res,500,{error:"AI research completed but could not be saved.",detail:trimText(saveError.message,220)});
+    if(saveError){
+      await db.from("mc_research_jobs").update({status:"failed",error_message:trimText(saveError.message,300),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
+      return json(res,500,{error:"AI research completed but could not be saved.",detail:trimText(saveError.message,220)});
+    }
+    await db.from("mc_research_jobs").update({status:"succeeded",result:{report_id:saved.id,model:MODEL,coverage:evidence.coverage},finished_at:new Date().toISOString(),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
     return json(res,200,{report:saved,coverage:evidence.coverage,model:MODEL});
   } catch(e) {
     await db.from("mc_ai_research_reports").insert({mint,status:"failed",model:MODEL,prompt_version:PROMPT_VERSION,summary:"Research generation failed.",report:{},evidence_manifest:{coverage:evidence.coverage},error_message:trimText(e.message,500),created_by:user.id});
+    await db.from("mc_research_jobs").update({status:"failed",error_message:trimText(e.message,400),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
     return json(res,e.status||502,{error:e.message||"AI research failed."});
   }
 }
