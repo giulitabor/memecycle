@@ -38,23 +38,28 @@ export default async function handler(req, res) {
       return { http_status: response.status, ok: response.ok, payload };
     };
 
+    console.log("[MEMECYCLE verify] pipeline started", new Date().toISOString());
     const discovery = await invoke("memecycle-worker", { action: "discover", limit: 30 }, {
       "x-bitquery-token": process.env.BITQUERY_TOKEN || ""
     });
+    console.log("[MEMECYCLE verify] discovery", { http_status: discovery.http_status, status: discovery.payload?.status, candidates_seen: discovery.payload?.candidates_seen, tokens_upserted: discovery.payload?.tokens_upserted, source_errors: discovery.payload?.source_errors });
     if (!discovery.ok) return res.status(502).json({ pipeline_status: "stopped", failed_stage: "discovery", discovery });
 
     const monitoring = await invoke("memecycle-monitor", {
       action: "monitor", limit: 1, backfill_limit: 0, rpc_url: rpcUrl
     });
+    console.log("[MEMECYCLE verify] monitor", { http_status: monitoring.http_status, status: monitoring.payload?.status, checked: monitoring.payload?.checked, snapshots: monitoring.payload?.snapshots, onchain_sampled: monitoring.payload?.onchainSampled });
     if (!monitoring.ok) return res.status(502).json({ pipeline_status: "stopped", failed_stage: "monitor", discovery, monitoring });
 
     const revival = await invoke("memecycle-revival", {
       action: "investigate", limit: 1, rpc_url: rpcUrl
     });
+    console.log("[MEMECYCLE verify] revival", { http_status: revival.http_status, status: revival.payload?.status, selected: revival.payload?.selected, completed: revival.payload?.completed, errors: revival.payload?.errors?.length });
     if (!revival.ok) return res.status(502).json({ pipeline_status: "stopped", failed_stage: "revival", discovery, monitoring, revival });
 
     const statuses = [discovery.payload?.status, monitoring.payload?.status, revival.payload?.status];
     const pipelineStatus = statuses.every(status => status === "succeeded") ? "succeeded" : "completed_with_warnings";
+    console.log("[MEMECYCLE verify] pipeline finished", { pipeline_status: pipelineStatus, finished_at: new Date().toISOString() });
     return res.status(200).json({
       pipeline_status: pipelineStatus,
       cron_route: "verify-pipeline",
