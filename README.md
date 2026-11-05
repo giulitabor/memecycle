@@ -24,11 +24,11 @@ npm run preview
 ## Environment security
 The browser uses only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Never put a Supabase service-role key, Helius private key, RPC secret or wallet secret in a `VITE_*` variable.
 
-The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` in Vercel Production. These remain server-only.
+The scheduled server-side discovery, monitor and archive-sampling runners require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` in Vercel Production. These remain server-only.
 
 ## Automated engine
 - Daily discovery at 07:00 UTC from DexScreener token profiles, boosts and GeckoTerminal trending pools.
-- Daily lifecycle monitoring at 08:00 UTC across the oldest-updated archive records (up to 50 per run; rows rotate as they are updated).
+- Daily lifecycle monitoring at 08:00 UTC across the oldest-updated archive records (up to 50 per run; rows rotate as they are updated).\n- Daily historical archive sampling at 12:00 UTC: up to 400 Pump.fun launch rows across the `launches_legacy` and `launches` dataset configs, selected from 100 deterministic strata. The worker stores selected facts, row locators, revision and content hashes; it does not mirror the full dataset.
 - Limited on-chain activity sampling on up to five tokens per monitor run, using the configured Helius RPC URL and inspecting the three largest token accounts per mint. This is explicitly partial coverage, not an exhaustive transaction history.
 - A preliminary abandonment research queue flags only low-confidence leads when a pool is at least 90 days old, liquidity and 24-hour volume are very low, and all three sampled top-holder accounts show no transaction in 90 days. Every lead remains unverified and private.
 - Each monitor pass records a fresh market snapshot, reassesses market-state classification and logs changes.
@@ -40,7 +40,7 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 ## Implemented
 - Read-only Solana rent-recovery analysis in the revival investigator: compares the mint and sampled largest token accounts against the live rent-exempt minimum, records possible excess and zero-balance close candidates, and never builds or sends transactions.
 - Reference-first archive pointers in revival dossiers: canonical Solana Explorer, DexScreener, launch-signature and exact-mint Hugging Face Dataset Viewer lookup links; no bulk dataset or media copies.
-- Reference-first archive and recovery design: retain canonical addresses, external source locators, hashes, provenance, licences and retrieval status instead of mirroring entire external datasets or media.
+- Reference-first archive graph in `mc_archive_references`, with canonical addresses, external row locators, dataset revisions, SHA-256 fingerprints, attribution, licence and retrieval status. The source rows and media are not bulk-copied.\n- Evidence-weighted reuse-value assessments in `mc_value_assessments`, separating historical, research, cultural, technical, recovery and community potential from legal rights, authority and consent.\n- Authenticated wallet-specific rent scanner: verifies a one-time Ed25519 message signature, scans the user's SPL Token and Token-2022 accounts, and stores private candidates. It never builds or sends transactions.
 - Public archive search, filters and public-only token detail.
 - Community reclamation submissions and RLS-enforced authenticated moderation.
 - Discovery ingestion, market snapshots, pool observations, provenance, classification history and data-gap tracking.
@@ -50,7 +50,7 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 ## Still requires additional data access / product work
 - Comprehensive indexed holder and transaction activity history (current RPC sampling is limited to the top three token accounts for five tokens per run; it is not exhaustive).
 - Comprehensive abandonment adjudication and publication criteria. The current research queue is only a preliminary lead generator; market inactivity and a three-account sample are insufficient for automatic public publication.
-- Wallet message-signature verification for reclamation authority.
+- Wallet-specific rent scans require a fresh user message signature; that signature proves wallet control only, not project ownership or authority to relaunch.
 - Paid subscriptions, billing, API keys and dataset entitlements.
 - Automated collectible issuance or revival transactions.
 
