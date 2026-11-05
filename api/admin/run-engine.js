@@ -12,14 +12,14 @@ export default async function handler(req,res){
  if(userError)return res.status(401).json({error:"Your administrator session could not be verified. Please sign out and sign in again."});
  if(userData.user?.app_metadata?.role!=="admin")return res.status(403).json({error:"Administrator access required."});
  const action=req.body?.action;
- if(action!=="discover"&&action!=="monitor")return res.status(400).json({error:"Choose discovery or monitor."});
+ if(!["discover","monitor","archive_backfill"].includes(action))return res.status(400).json({error:"Choose discovery, monitor or historical archive backfill."});
  const since=new Date(Date.now()-5*60*1000).toISOString();
- const runType=action==="discover"?"discovery":"monitor";
+ const runType=action==="discover"?"discovery":action==="monitor"?"monitor":"backfill";
  const {count,error:countError}=await admin.from("mc_ingestion_runs").select("id",{count:"exact",head:true}).eq("run_type",runType).gte("started_at",since);
  if(countError)return res.status(500).json({error:"Could not check recent run limits."});
  if((count||0)>0)return res.status(429).json({error:"A run of this type started in the last five minutes. Please wait before retrying."});
  try{
-  const body={action:action==="discover"?"discover":"monitor",limit:action==="discover"?30:10,backfill_limit:2};
+  const body=action==="archive_backfill"?{action:"archive_backfill",pages_per_config:5}:{action:action==="discover"?"discover":"monitor",limit:action==="discover"?30:10,backfill_limit:2};
   if(action==="monitor"&&process.env.HELIUS_RPC)body.rpc_url=process.env.HELIUS_RPC;
   const response=await fetch(`${(url.endsWith('/')?url.slice(0,-1):url)}/functions/v1/memecycle-${action==="discover"?"worker":"monitor"}`,{
    method:"POST",headers:{"content-type":"application/json","authorization":`Bearer ${service}`,"apikey":service},
