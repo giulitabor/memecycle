@@ -222,3 +222,12 @@ Started: 2026-11-05 (Europe/Rome)
 - Revival evidence now records excluded pool account count, included non-pool token-account count, invalid account amount count, distinct non-pool owner count, and the limited top-account sample scope.
 - Added five Node regression tests for pool exclusion, missing parsed owner, owner aggregation, invalid supply and pool-only samples.
 - This change does not claim a full holder census and does not alter publication, outreach, consent or wallet-action controls.
+
+
+### Pipeline smoke-test completion and temporary route removal — 2026-11-05
+- Vercel runtime logs confirm the protected `/api/cron/verify-pipeline` request was sent by `vercel-cron/1.0` with the required secret/configuration present.
+- Sequential production smoke test completed: discovery HTTP 200 (partial because Bitquery archive returned 403), monitor HTTP 200 (succeeded, one record checked; no pool-signature RPC was needed for that record), revival HTTP 200 (succeeded, one token investigated, seven evidence records and one assessment written).
+- The temporary annual 5 November verification cron and its route are removed from this branch after successful execution, preventing an unintended yearly repeat.
+- Historical archive blocker confirmed: Bitquery's documented Solana archive dataset requires an archive add-on; the configured token receives HTTP 403. No paid plan or add-on was purchased. See https://docs.bitquery.io/docs/blockchain/Solana/Pumpfun/Pump-Fun-API/.
+- Current candidate archive remains very young: oldest persisted discovery records begin 2 November 2026. This is not enough historical depth to validate actual abandoned-project recovery. Keep this milestone open until a permitted historical source supplies older launches and the monitor/revival workers have processed a representative batch.
+- No live public archive record, outreach, relaunch, token transfer, or wallet action was performed.
