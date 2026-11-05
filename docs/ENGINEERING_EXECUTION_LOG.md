@@ -109,3 +109,8 @@ Started: 2026-11-05 (Europe/Rome)
 - Added and applied migration `internal_table_deny_policies` for AI research reports, audit events, on-chain evidence, project identities, research jobs, revival assessments, revival cases and case events.
 - Policies explicitly deny all client-role operations (`anon`, `authenticated`) while preserving service-role server access.
 - Re-ran Supabase security advisors: the eight RLS-without-policy findings are cleared. The only remaining security warning is Supabase Auth leaked-password protection disabled; no supported in-chat auth-configuration action is available, so this remains a dashboard configuration task.
+
+### Stage 7 UI follow-up — opportunity ranking and recovery-plan controls
+- Extended the admin recovery API with a ranked opportunity queue backed by versioned revival assessments, token metadata and identity/case status.
+- Extended `/admin` with a ranked candidate list, one-click internal case creation linked to the assessment, public contact-channel evidence entry, consent-gated recovery plan/risk-register editing, and case history notes.
+- This remains an internal research console. It does not publish candidate records, send outreach, or execute blockchain operations.
