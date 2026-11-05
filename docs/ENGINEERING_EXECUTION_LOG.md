@@ -293,3 +293,11 @@ Started: 2026-11-05 (Europe/Rome)
 - `memecycle-monitor` remains v16 ACTIVE with the no-pair insufficient-evidence path; `memecycle-revival` v6 includes pool-aware holder scoring and rent-recovery estimates.
 - No wallet transaction was built or sent. No account was closed, no tokens burned, and no SOL moved. A runtime invocation of the new rent scan has not yet been verified; the production bundle and CI are verified, while the first scheduled/manual research run remains the runtime verification gate.
 - The historical reference-first source strategy is documented. The external archive integration itself is not yet implemented; next work is a bounded source-query pilot with a stable dataset row locator and source revision, then a controlled historical enrichment run.
+
+
+### 2026-11-05 — External archive locator indexing
+- Added `archive-references.js` to generate stable reference pointers for the Solana mint, DexScreener token/pair, oldest available mint-account transaction, and the four exact-mint lookup configurations in the CC BY 4.0 Hugging Face Pump.fun dataset.
+- Stored the generated reference object as `archive_references` evidence and inside each revival assessment's evidence manifest. The source rows are not fetched or copied; the manifest marks lookups as reference-only.
+- Added tests for exact-mint lookup URL construction, canonical links, and safe handling of IPFS/Arweave/HTTP metadata URI schemes.
+- Updated source review: the SolArchive Hugging Face viewer currently reports a Parquet read error and is not eligible for ingestion until a reproducible sample passes validation.
+- This locator helper is on branch `agent/memecycle-external-reference-links-20261105`; it is not deployed until CI, merge and Supabase function deployment complete.

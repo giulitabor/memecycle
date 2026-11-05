@@ -39,6 +39,7 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 
 ## Implemented
 - Read-only Solana rent-recovery analysis in the revival investigator: compares the mint and sampled largest token accounts against the live rent-exempt minimum, records possible excess and zero-balance close candidates, and never builds or sends transactions.
+- Reference-first archive pointers in revival dossiers: canonical Solana Explorer, DexScreener, launch-signature and exact-mint Hugging Face Dataset Viewer lookup links; no bulk dataset or media copies.
 - Reference-first archive and recovery design: retain canonical addresses, external source locators, hashes, provenance, licences and retrieval status instead of mirroring entire external datasets or media.
 - Public archive search, filters and public-only token detail.
 - Community reclamation submissions and RLS-enforced authenticated moderation.

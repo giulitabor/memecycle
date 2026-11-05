@@ -4,11 +4,12 @@ import { scoreRevival } from "./scoring.js";
 import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
 import { aggregateNonPoolHolders } from "./holder-distribution.js";
 import { assessRentRecovery } from "./rent-recovery.js";
+import { buildArchiveReferences } from "./archive-references.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } });
-const VERSION = "memecycle-revival-0.3.0";
+const VERSION = "memecycle-revival-0.4.0";
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json", "cache-control": "no-store" }
 });
@@ -145,6 +146,16 @@ async function investigateToken(token: any, endpoint: string) {
   }
 
   const source = "solana_rpc";
+  const pumpfunMetadataUri = token.source_provenance?.pumpfun?.uri
+    ?? token.source_provenance?.pumpfun?.metadata_uri
+    ?? token.metadata_uri
+    ?? null;
+  const archiveReferences = buildArchiveReferences({
+    mint,
+    primaryPairAddress: token.primary_pair_address ?? null,
+    metadataUri: pumpfunMetadataUri,
+    launchSignature: mintSignatures?.[mintSignatures.length - 1]?.signature ?? null
+  });
   await storeEvidence(mint, "supply", source, "observed", "Parsed mint account; supply is raw base units and decimals are recorded.", {
     supply_raw: supplyRaw, decimals: Number(info.decimals), initialized: Boolean(info.isInitialized), largest_account_count: topAccounts.length
   });
@@ -167,6 +178,9 @@ async function investigateToken(token: any, endpoint: string) {
   await storeEvidence(mint, "rent_recovery", source, "partial",
     "Read-only comparison of observed mint/largest-token-account lamports with getMinimumBalanceForRentExemption at the current cluster rent parameters. This is not a wallet-wide scan, authority verification, transaction quote or promise of recoverability.",
     rentRecovery);
+  await storeEvidence(mint, "archive_references", "memecycle_reference_index", "observed",
+    "External source locators and canonical on-chain links only. The referenced dataset rows and metadata payloads were not downloaded or copied.",
+    archiveReferences);
   if (poolActivityAt) await storeEvidence(mint, "pool_activity", source, "partial",
     "Latest signature on the recorded primary DEX pool account only; this does not represent all token transfers, holders or community activity.", {
       pair_address: token.primary_pair_address, latest_signature_at: poolActivityAt
@@ -210,6 +224,7 @@ async function investigateToken(token: any, endpoint: string) {
     freeze_authority: info.freezeAuthority ?? null, supply_raw: supplyRaw, decimals: Number(info.decimals),
     top20_supply_pct: top20SupplyPct, top20_scope: "largest non-pool token accounts grouped by parsed owner; known primary DEX pool address excluded; not a full beneficial-owner distribution",
     rent_recovery: rentRecovery,
+    archive_references: archiveReferences,
     excluded_primary_pool_account_count: holderDistribution.excludedPoolAccountCount,
     included_non_pool_token_account_count: holderDistribution.includedAccountCount,
     pool_activity_at: poolActivityAt, pair_age_days: pairAgeDays, pool_activity_age_days: poolActivityAgeDays,
