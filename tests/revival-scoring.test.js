@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoreRevival } from "../supabase/functions/_shared/revival-scoring.js";
+import { scoreRevival } from "../supabase/functions/memecycle-revival/scoring.js";
 
 test("unknown evidence never becomes a revival candidate", () => {
   const result = scoreRevival({});
