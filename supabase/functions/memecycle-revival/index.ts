@@ -114,7 +114,7 @@ async function investigateToken(token: any, endpoint: string) {
   const rentRecovery = assessRentRecovery({
     mintAddress: mint,
     mintAccount,
-    tokenAccounts: accountRows,
+    tokenAccounts: accountRows as any[],
     rentMinimumBySpace
   });
   // Exclude the known primary DEX pool address from beneficial-holder concentration.
