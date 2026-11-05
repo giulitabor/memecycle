@@ -32,6 +32,8 @@ jobs:
         run: npm test
       - name: Build application
         run: npm run build
+      - name: Check serverless route syntax
+        run: node --check api/admin/research.js && node --check api/admin/run-engine.js && node --check api/cron/archive-backfill.js
 
   edge-functions:
     name: Edge function type checks
