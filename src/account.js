@@ -63,5 +63,5 @@ export function initAccountExperience(db) {
   });
   panel.querySelector('#account-signout').addEventListener('click',async()=>{const {error}=await db.auth.signOut();if(error)setMessage('Sign out failed.',true);else{await renderSession(null);setMessage('Signed out.');}});
   db.auth.getSession().then(({data})=>renderSession(data.session));
-  db.auth.onAuthStateChange((_event,session)=>{renderSession(session);});
+  db.auth.onAuthStateChange((_event,session)=>{queueMicrotask(()=>renderSession(session));});
 }
