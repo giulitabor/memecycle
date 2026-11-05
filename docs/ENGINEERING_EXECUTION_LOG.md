@@ -214,3 +214,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Verified the production Bitquery token is present, non-empty and not a placeholder (token value intentionally not recorded).
 - Verified the production Helius RPC setting is an HTTPS URL on `mainnet.helius-rpc.com` with an API-key query parameter (credential intentionally not recorded).
 - These checks establish configuration shape only; successful provider authentication and historical archive entitlement must be confirmed by the scheduled worker response.
+
+
+### Pool-aware holder concentration correction — 2026-11-05
+- Live revival investigation showed the largest token account's parsed owner was the primary DEX pool address and its balance equalled 100% of mint supply. The prior calculation treated this pool reserve as beneficial-holder concentration.
+- Added a pure holder-distribution helper that excludes the explicitly known primary pool address (both account and parsed-owner matches), consolidates remaining accounts by parsed owner, and returns unknown concentration when no non-pool sample or valid supply exists.
+- Revival evidence now records excluded pool account count, included non-pool token-account count, invalid account amount count, distinct non-pool owner count, and the limited top-account sample scope.
+- Added five Node regression tests for pool exclusion, missing parsed owner, owner aggregation, invalid supply and pool-only samples.
+- This change does not claim a full holder census and does not alter publication, outreach, consent or wallet-action controls.
