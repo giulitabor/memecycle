@@ -23,9 +23,10 @@ Store only small normalized facts needed for search and scoring. Do not fetch or
 
 1. **Solana itself:** mint/account addresses and transaction signatures are durable identifiers; use RPC for current state and indexed providers or public archives for historical reconstruction. Standard RPC alone is not a complete historical index.
 2. **SolArchive:** evaluate its public Parquet indexes for transactions, account snapshots and token metadata. Treat coverage, availability, checksums and licence as unverified until an ingestion pilot validates actual files and provenance.
-3. **Hugging Face Pump.fun launch dataset:** use its dataset row identifiers and source revision as references, not as ground truth. Preserve its stated CC BY 4.0 attribution and documented sampling/decoder limitations. Independently verify high-value claims against chain evidence.
-4. **Bitquery:** keep as an optional indexed archive provider; previous archive access returned HTTP 403. Do not buy a plan or assume access until entitlement and cost are confirmed.
-5. **IPFS / Arweave / metadata URIs:** store the original URI, gateway-independent content identifier where possible, hash, creator/authority evidence and retrieval status. A URI is not proof of ownership or a guarantee of availability.
+3. **Hugging Face Pump.fun launch dataset:** the `loopholetape/pumpfun-launches` dataset is CC BY 4.0 and publishes `launches`, `launches_legacy`, `graduation_pools` and `features` configurations. Its Dataset Viewer `/filter` endpoint can query a mint without downloading the full dataset. MEMECYCLE now stores exact-mint lookup URLs for each configuration in the revival evidence manifest, alongside attribution and the dataset URL. These are pointers only: rows are not fetched or copied. The dataset covers 2026-08-31 through 2026-10-29 in this snapshot and has documented decoder gaps, sampled early-life features and rule-based `rugged` labels. Independently verify high-value claims against chain evidence.
+4. **SolArchive:** the SolArchive dataset advertises CC BY 4.0, but its current Hugging Face viewer reports that the full viewer is unavailable because its Parquet files could not be read. Do not integrate it until a reproducible sample download, checksum and schema validation succeeds.
+5. **Bitquery:** keep as an optional indexed archive provider; previous archive access returned HTTP 403. Do not buy a plan or assume access until entitlement and cost are confirmed.
+6. **IPFS / Arweave / metadata URIs:** store the original URI, gateway-independent content identifier where possible, hash, creator/authority evidence and retrieval status. A URI is not proof of ownership or a guarantee of availability.
 
 No single provider's label such as "rugged", "dead", "bundled" or "abandoned" is a verdict. Provider assertions remain explicitly attributed.
 
@@ -87,3 +88,8 @@ Deterministic parsers and scoring produce measurements. AI explains, connects an
 - Every rent estimate uses a live RPC rent minimum and clearly reports sample coverage.
 - Unit tests cover zero balance, positive balance, excess above rent floor, missing rent response and authority-not-verified cases.
 - A production smoke test remains read-only and creates evidence only; it must not construct or submit a transaction.
+
+
+## Implemented reference pointers
+
+The revival evidence manifest now stores canonical Solana Explorer links, DexScreener token/pair links, the launch transaction link when available, and exact-mint Hugging Face Dataset Viewer filter URLs for the four dataset configurations. The manifest also records the CC BY 4.0 attribution and explicitly marks the dataset lookup as `reference_only_not_fetched`. This keeps MEMECYCLE's database as a searchable index rather than a mirror of the dataset. The links are generated, not yet fetched; a later source-query pilot must validate actual row matches and capture the dataset revision before using provider fields as evidence.
