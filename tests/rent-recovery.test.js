@@ -22,7 +22,8 @@ test("separates zero-balance close candidates from excess withdrawals", () => {
     ],
     rentMinimumBySpace: { "165": "2000000" }
   });
-  assert.equal(result.token_accounts[0].potential_close_candidate, true);\n  assert.equal(result.token_accounts[0].potential_excess_withdrawal_candidate, false);
+  assert.equal(result.token_accounts[0].potential_close_candidate, true);
+  assert.equal(result.token_accounts[0].potential_excess_withdrawal_candidate, false);
   assert.equal(result.token_accounts[0].potential_excess_lamports_raw, "1000000");
   assert.equal(result.token_accounts[1].potential_close_candidate, false);
   assert.equal(result.token_accounts[1].potential_excess_withdrawal_candidate, false);
