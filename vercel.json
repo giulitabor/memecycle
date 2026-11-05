@@ -11,15 +11,15 @@
   "crons": [
     {
       "path": "/api/cron/discover",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/monitor",
       "schedule": "0 20 * * *"
     },
     {
-      "path": "/api/cron/revival",
+      "path": "/api/cron/monitor",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/revival",
+      "schedule": "0 0 * * *"
     }
   ]
 }
