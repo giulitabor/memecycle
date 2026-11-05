@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { scoreRevival } from "../_shared/revival-scoring.js";
+import { scoreRevival } from "./scoring.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -197,7 +197,6 @@ async function investigateToken(token: any, endpoint: string) {
     rationale: "Deterministic evidence-weighted research triage. This is not an abandonment finding, investment recommendation, or authorisation to relaunch."
   }).select("id,assessment_status,opportunity_score").single();
   if (assessmentError) throw assessmentError;
-  await db.from("mc_tokens").update({ holder_count: token.holder_count ?? null }).eq("mint", mint);
   return { mint, assessment_id: assessment.id, ...scores, creator_candidate_found: Boolean(creatorCandidate), top20_supply_pct: top20SupplyPct };
 }
 
