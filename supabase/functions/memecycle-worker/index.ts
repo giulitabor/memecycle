@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-const URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,db=createClient(URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-rules-0.1.0";
+const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,db=createClient(SUPABASE_URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-rules-0.1.0";
 const SOURCES=[["dexscreener_profiles","https://api.dexscreener.com/token-profiles/latest/v1"],["dexscreener_boosts","https://api.dexscreener.com/token-boosts/latest/v1"],["geckoterminal_trending","https://api.geckoterminal.com/api/v2/networks/solana/trending_pools"]] as const;
 const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const valid=(v:unknown):v is string=>typeof v==="string"&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v),num=(v:unknown):number|null=>v==null||v===""||!Number.isFinite(Number(v))?null:Number(v);
