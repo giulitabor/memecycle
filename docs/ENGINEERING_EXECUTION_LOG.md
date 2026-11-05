@@ -137,3 +137,10 @@ Started: 2026-11-05 (Europe/Rome)
 - Recording consent as granted requires independently verified authority, an explicit-project-consent evidence record, and a separate human confirmation.
 - Metadata edits preserve existing evidence when the operator leaves the evidence fields blank; changing evidence for an already-verified identity requires renewed confirmation.
 - Added two policy tests. Combined scoring and recovery-policy suite now passes 12/12.
+
+### Final production UI release — 2026-11-05
+- Deployed the human-attestation hardening and evidence-preservation changes to Vercel production as `dpl_auzHZebmDfTntjDvdpkQaj3xczk2`, commit `9700e8b647b4255ef8607ef72e4dc698710cff60`.
+- Production deployment READY; `memecycle.vercel.app` alias read-back confirmed and `aliasError: null`.
+- Vercel runtime error scan (last 10 minutes) returned no runtime error clusters.
+- The admin UI now requires separate explicit confirmations when recording independently verified authority and granted consent. Changing evidence for an existing verification requires renewed human review; leaving evidence fields blank preserves the previously saved evidence.
+- Current test suite: 12/12 pass (6 revival scoring, 6 recovery governance). Vercel build READY. Admin authentication and full browser workflow remain untested because no administrator session was available to the engineering run.
