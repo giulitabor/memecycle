@@ -24,6 +24,11 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
       ? String(parsedInfo?.tokenAmount?.amount ?? "")
       : null;
     const zeroBalance = kind === "token_account" && amount === "0";
+    const token2022 = account?.owner === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+    const authorityAvailable = kind === "mint" ? Boolean(parsedInfo?.mintAuthority) : Boolean(parsedInfo?.owner);
+    const excessWithdrawalCandidate = valid && excess > 0n && token2022 && authorityAvailable;
+    const closeAuthority = parsedInfo?.closeAuthority ?? null;
+    const closeAuthorityCompatible = kind === "token_account" && (!closeAuthority || closeAuthority === parsedInfo?.owner);
     return {
       address,
       account_kind: kind,
@@ -33,17 +38,17 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
       current_rent_exempt_minimum_lamports_raw: validUInt(minimum) ? minimum : null,
       potential_excess_lamports_raw: valid ? excess.toString() : null,
       token_authority: parsedInfo?.owner ?? null,
-      close_authority: parsedInfo?.closeAuthority ?? null,
+      close_authority: closeAuthority,
       token_amount_raw: amount,
       zero_token_balance: zeroBalance,
-      potential_close_candidate: zeroBalance,
-      potential_excess_withdrawal_candidate: valid && excess > 0n,
+      potential_close_candidate: zeroBalance && closeAuthorityCompatible,
+      potential_excess_withdrawal_candidate: excessWithdrawalCandidate,
       authority_verified: false,
       transaction_built: false,
       transaction_sent: false,
       limitations: [
         "Read-only estimate from one RPC observation; balances and rent parameters can change.",
-        "Potential excess does not prove the owning program currently supports WithdrawExcessLamports.",
+        "Excess withdrawal is only flagged for Token-2022 when a relevant authority field is present; support and signer control still require verification.",
         "A candidate does not prove the required authority can sign or that the user consents.",
         "Closing a token account destroys that account; only a zero-balance account may be considered, subject to authority and extension checks."
       ]
@@ -60,7 +65,7 @@ export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [
     row.account?.data?.parsed?.info ?? {}
   ));
   const total = [...(mint ? [mint] : []), ...accounts].reduce((sum, row) => {
-    return sum + (validUInt(row.potential_excess_lamports_raw)
+    return sum + (row.potential_excess_withdrawal_candidate && validUInt(row.potential_excess_lamports_raw)
       ? BigInt(row.potential_excess_lamports_raw)
       : 0n);
   }, 0n);

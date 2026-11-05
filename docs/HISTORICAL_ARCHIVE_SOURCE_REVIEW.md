@@ -16,7 +16,7 @@ The configured Bitquery archive query returned HTTP 403 even though the Vercel c
 - Dataset card reports CC BY 4.0.
 - Release inspected on 2026-11-05: approximately 2.42 million launches covering 2026-08-31 through 2026-10-29.
 - Rows include mint, creator wallet, launch timestamp, name/symbol, quote asset, graduation and curve outcome fields.
-- The Hugging Face Dataset Viewer documents a public `/filter` endpoint that can filter Parquet-backed datasets using predicates and return bounded pages (maximum 100 rows per page).
+- The Hugging Face Dataset Viewer `/rows` endpoint returned bounded pages (maximum 100 rows) in a live test. An exact-mint `/filter` request returned HTTP 500 with a provider-side authentication-check error during this review; the integration therefore uses deterministic stratified `/rows` sampling, not `/filter`.
 - Dataset attribution required by its card: Recorded and published by loopholetape, the project's automated agent.
 
 References:
@@ -38,14 +38,14 @@ References:
 
 Do not add the source to production discovery until all of these pass:
 
-1. Make a bounded, unauthenticated test request to the Dataset Viewer `/splits` and `/filter` endpoints from a controlled test environment.
-2. Confirm the response is successful, `partial=false`, and contains the expected mint, creator and launch-time columns.
-3. Filter a small historical time window and confirm returned timestamps, mints and launchpad attribution against a sample of direct Solana chain lookups.
-4. Confirm the endpoint supports deterministic pagination and a stable ordering; persist a cursor/checkpoint so no pages are silently skipped or duplicated.
-5. Import only a small batch of candidates per scheduled run, deduplicate by mint, and record dataset name, release/revision, row index, source URL, license and observation time in provenance.
-6. Keep historical dataset outcomes separate from live chain evidence. Never promote `rugged`, `graduated`, or `curve_complete` fields into an abandonment or revival verdict.
-7. Add fixture-based tests for filtering, pagination, duplicate handling, missing values, timestamp conversion and decoder-regime exclusions.
-8. Confirm the source's attribution requirements are preserved in the product's source disclosures.
+1. Keep `/rows` page size at or below 100 and sample deterministic offsets across both historical configs.
+2. Capture the Hub revision before and after each sampling run; mark references stale if the revision changes during a run (the Dataset Viewer `/rows` API does not accept a revision parameter).
+3. Deduplicate token records by mint while preserving every provider-specific row locator.
+4. Record dataset name/config/split/row index, source revision, SHA-256 content fingerprint, licence, attribution and observation time.
+5. Keep all imported candidates private and unverified. Provider outcome fields remain provider claims, never automatic abandonment or revival verdicts.
+6. Preserve decoder-regime and non-random feature-sampling limitations on every imported record.
+7. Continue testing pagination, duplicate handling, missing values, timestamp conversion, source revision changes and decoder-regime exclusions.
+8. Confirm the source's attribution requirements are preserved in product disclosures.
 
 ## Current decision
 

@@ -52,3 +52,29 @@
 .admin-divider{height:1px;background:rgba(190,220,195,.12);margin:24px 0}
 .admin-footnote{font-size:11px!important;max-width:850px;margin:28px auto;text-align:center;color:#7f9386!important}
 @media(max-width:760px){.admin-shell{padding:18px 14px 60px}.admin-grid{grid-template-columns:1fr}.admin-top,.admin-heading,.admin-section-head{align-items:flex-start;flex-direction:column}.admin-card{padding:18px}.admin-case>div:first-child,.admin-report>div:first-child{align-items:flex-start;flex-direction:column}}
+
+
+.wallet-scan-card{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;padding:28px;border:1px solid rgba(190,220,195,.15);border-radius:18px;background:rgba(5,17,12,.72)}
+.wallet-scan-intro h3{font-size:clamp(24px,3vw,34px);margin:12px 0}
+.wallet-scan-intro p{color:#a9b9ad;max-width:640px;line-height:1.7}
+.wallet-scan-actions{display:flex;flex-direction:column;gap:12px;justify-content:center}
+.wallet-scan-actions .form-message{min-height:38px;color:#9fb5a4;font-size:12px}
+.wallet-scan-results{grid-column:1/-1;border-top:1px solid rgba(190,220,195,.14);padding-top:22px}
+.wallet-scan-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.wallet-scan-summary>div{padding:16px;border:1px solid rgba(190,220,195,.12);border-radius:12px;background:rgba(2,10,7,.5)}
+.wallet-scan-summary small{display:block;color:#82998a;font-size:9px;letter-spacing:.1em;margin-bottom:8px}
+.wallet-scan-summary b{font-size:clamp(16px,2vw,22px);color:#c9e5ce}
+.wallet-scan-status,.wallet-scan-id{color:#81978a;font-size:11px}
+.wallet-candidate{margin-top:12px;padding:16px;border:1px solid rgba(190,220,195,.12);border-radius:12px;background:rgba(2,10,7,.45)}
+.wallet-candidate-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.wallet-candidate-head b{color:#c7e0cb;font-size:13px}
+.wallet-candidate-head span{font-size:9px;letter-spacing:.08em;color:#d0b77c}
+.wallet-candidate small{display:block;margin-top:8px;color:#8da397;font-size:10px;overflow-wrap:anywhere}
+.wallet-candidate-values{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:12px;color:#9eb0a3;font-size:11px}
+.wallet-candidate-values b{color:#d2e4d5}
+.wallet-candidate p{font-size:11px;color:#c4ae79;margin:10px 0 0}
+.wallet-scan-limitations{margin-top:18px;color:#93a69a;font-size:11px}
+.wallet-scan-limitations summary{cursor:pointer;color:#a9c7ae}
+.wallet-scan-limitations li{margin:6px 0}
+.wallet-scan-id{display:block;margin-top:12px;overflow-wrap:anywhere}
+@media(max-width:760px){.wallet-scan-card{grid-template-columns:1fr;padding:20px}.wallet-scan-summary{grid-template-columns:1fr}.wallet-candidate-head{align-items:flex-start;flex-direction:column}}

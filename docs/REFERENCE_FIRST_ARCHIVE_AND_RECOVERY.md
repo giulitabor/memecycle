@@ -8,7 +8,7 @@ The database is the index and evidence ledger, not a duplicate of the internet.
 
 ## What a reference record should contain
 
-A future `mc_archive_references` table should use a stable identity of `(network, subject_type, subject_address, source_id, external_record_id)` and retain:
+The `mc_archive_references` table now uses a stable identity of `(network, subject_type, subject_address, source_id, external_record_id)` and retains:
 
 - canonical subject: cluster, mint/account/wallet/program address, transaction signature;
 - source locator: provider, dataset/version, row key, canonical URL or content URI (IPFS/Arweave/HTTP);
@@ -23,7 +23,7 @@ Store only small normalized facts needed for search and scoring. Do not fetch or
 
 1. **Solana itself:** mint/account addresses and transaction signatures are durable identifiers; use RPC for current state and indexed providers or public archives for historical reconstruction. Standard RPC alone is not a complete historical index.
 2. **SolArchive:** evaluate its public Parquet indexes for transactions, account snapshots and token metadata. Treat coverage, availability, checksums and licence as unverified until an ingestion pilot validates actual files and provenance.
-3. **Hugging Face Pump.fun launch dataset:** the `loopholetape/pumpfun-launches` dataset is CC BY 4.0 and publishes `launches`, `launches_legacy`, `graduation_pools` and `features` configurations. Its Dataset Viewer `/filter` endpoint can query a mint without downloading the full dataset. MEMECYCLE now stores exact-mint lookup URLs for each configuration in the revival evidence manifest, alongside attribution and the dataset URL. These are pointers only: rows are not fetched or copied. The dataset covers 2026-08-31 through 2026-10-29 in this snapshot and has documented decoder gaps, sampled early-life features and rule-based `rugged` labels. Independently verify high-value claims against chain evidence.
+3. **Hugging Face Pump.fun launch dataset:** `loopholetape/pumpfun-launches` is CC BY 4.0 and publishes `launches`, `launches_legacy`, `graduation_pools` and `features`. On 2026-11-05 the Hub API returned revision `00d98ac1eca7b5377798ac15b82d46db87109300`; the Dataset Viewer reported 1,562,689 `launches` rows, 859,208 `launches_legacy` rows, 4,702,805 `features` rows and 41,545 `graduation_pools` rows. `/rows` successfully returned bounded slices (maximum 100 rows). An exact-mint `/filter` request returned HTTP 500 with a provider-side authentication-check error, so production ingestion uses bounded `/rows` sampling rather than relying on `/filter`. MEMECYCLE samples evenly across 100 deterministic strata per config and stores only selected facts, content hashes, source revision and row locators; it does not mirror the dataset. Independently verify high-value claims against chain evidence.
 4. **SolArchive:** the SolArchive dataset advertises CC BY 4.0, but its current Hugging Face viewer reports that the full viewer is unavailable because its Parquet files could not be read. Do not integrate it until a reproducible sample download, checksum and schema validation succeeds.
 5. **Bitquery:** keep as an optional indexed archive provider; previous archive access returned HTTP 403. Do not buy a plan or assume access until entitlement and cost are confirmed.
 6. **IPFS / Arweave / metadata URIs:** store the original URI, gateway-independent content identifier where possible, hash, creator/authority evidence and retrieval status. A URI is not proof of ownership or a guarantee of availability.
@@ -78,6 +78,14 @@ The AI should not invent a "value" from a dead token label. It should assemble a
 
 Deterministic parsers and scoring produce measurements. AI explains, connects and proposes uses, always with citations back to source records. Human review remains mandatory for rights, identity, consent, publication and any asset-recovery action.
 
+## Implemented historical-source pilot
+
+- A real `launches` row was retrieved from the Dataset Viewer `/rows` endpoint at `row_idx=0`, with the dataset revision and a SHA-256 content fingerprint recorded. The sample is `how come i never win` (`win`), mint `8pdHR6UEDUDbopDHdP3sMZ3ivD6WSCKSYHMEkxikys7e`, launch time 2026-09-27 00:00:02.844 UTC. Its `decoder_complete=0` and `features_basis=harness_sample` limitations were preserved.
+- Independent Solana mainnet JSON-RPC returned the mint account and the launch transaction. The oldest returned mint signature was a successful mint-creation transaction at slot 450829364. The fee payer was a signer and matched the dataset's creator field. This verifies the launch attribution for that transaction only, not real-world identity or project ownership.
+- The on-chain Token-2022 metadata URI returned HTTP 404. The original URI is retained as a missing reference; no metadata or artwork was copied.
+- The mint account held 2,656,840 lamports, equal to the live rent-exempt minimum for its 395-byte size; no mint-account excess was identified in this sample.
+- The sample token remains private and unverified. The dataset's `rugged=1` provider flag is not treated as proof of fraud or abandonment.
+
 ## Acceptance gates for the next archive milestone
 
 - At least two historical sources pass a reproducible sample download/query test.
@@ -92,4 +100,4 @@ Deterministic parsers and scoring produce measurements. AI explains, connects an
 
 ## Implemented reference pointers
 
-The revival evidence manifest now stores canonical Solana Explorer links, DexScreener token/pair links, the launch transaction link when available, and exact-mint Hugging Face Dataset Viewer filter URLs for the four dataset configurations. The manifest also records the CC BY 4.0 attribution and explicitly marks the dataset lookup as `reference_only_not_fetched`. This keeps MEMECYCLE's database as a searchable index rather than a mirror of the dataset. The links are generated, not yet fetched; a later source-query pilot must validate actual row matches and capture the dataset revision before using provider fields as evidence.
+The revival evidence manifest now stores canonical Solana Explorer links, DexScreener token/pair links, the launch transaction link when available, and exact-mint Hugging Face Dataset Viewer filter URLs for the four dataset configurations. The manifest also records the CC BY 4.0 attribution and explicitly marks the dataset lookup as `reference_only_not_fetched`. This keeps MEMECYCLE's database as a searchable index rather than a mirror of the dataset. The source-query pilot has now retrieved one real row and independently corroborated its launch transaction. The daily stratified sampler is implemented on the working branch; after CI and deployment it will index bounded pages, retain selected facts and links, and leave all imported candidates private and unverified.

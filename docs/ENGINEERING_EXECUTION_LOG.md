@@ -309,3 +309,46 @@ Started: 2026-11-05 (Europe/Rome)
 - Verified the live bundle contains the reference helper, exact-mint Hugging Face Dataset Viewer filter links for all four configurations, the `reference_only_not_fetched` status, rent estimator, and pool-aware holder aggregation.
 - The links are persisted as `archive_references` evidence and inside the revival evidence manifest. They point to the external dataset and canonical Solana/DEX records; no dataset rows or media are copied. The HF source has not yet been queried from production, so row-match and revision validation remain a separate pilot.
 - No Vercel deployment was needed for this backend-only change; no public frontend behavior changed. No wallet transactions, closures, burns or SOL transfers were performed.
+
+
+### 2026-11-05 — Five-milestone recovery/reuse programme (working branch; CI/deployment pending)
+
+#### Milestone 1 — Historical-source pilot
+- Live Hugging Face Hub API revision observed: `00d98ac1eca7b5377798ac15b82d46db87109300`. Dataset Viewer sizes at observation: launches 1,562,689 rows; launches_legacy 859,208; features 4,702,805; graduation_pools 41,545.
+- `/rows` successfully returned a real `launches/train` row at row index 0. Exact-mint `/filter` returned HTTP 500 with a provider-side authentication-check error; this is recorded as an API limitation, not silently treated as no match.
+- Independently queried Solana mainnet JSON-RPC for mint `8pdHR6UEDUDbopDHdP3sMZ3ivD6WSCKSYHMEkxikys7e`. The oldest of 94 returned signatures was a successful mint-creation transaction at slot 450829364. The transaction fee payer was a signer and matched the dataset creator field. This corroborates the launch transaction only; it does not establish real-world identity or project authority.
+- The original Token-2022 metadata URI returned HTTP 404. The URI and missing status are retained; no metadata JSON or image was copied.
+- The mint account held 2,656,840 lamports, equal to the current rent-exempt minimum for its 395-byte size. No mint-account excess was identified.
+- Added the sample token as a private, unverified research candidate, with three reference records (dataset row, launch transaction, missing metadata URI), two on-chain evidence rows, and a launch event.
+
+#### Milestone 1 — Bounded historical sampler
+- Added a daily worker action that samples up to two 100-row pages from each of the `launches_legacy` and `launches` configurations (up to 400 rows/day).
+- The sampler selects deterministic offsets across 100 strata per configuration, stores selected facts only, computes a SHA-256 fingerprint of each fetched row, records the Hub revision and stable row locator, and upserts token records as private/unverified.
+- It does not copy the dataset or media. Provider `rugged`/graduation flags remain provider claims and do not change abandonment classifications.
+- Source revision is checked before and after each run; changed revisions mark the affected references stale. If a source request or revision recheck fails, the ingestion run is partial/failed and the cursor does not silently advance past a failed page.
+- Added `mc_archive_references` table and unique source-record identity key; source cursors are stored in `mc_discovery_sources`.
+
+#### Milestone 2 — Evidence enrichment
+- The first historical sample joins the dataset row to the actual Solana mint-creation transaction and records the signer/fee-payer match, slot, block time, Token-2022 program, decimals, initial mint authority and revocation, and metadata URI status.
+- Evidence distinguishes observed chain facts from provider-reported dataset labels. The creator address is only a transaction signer candidate, not an identity or authority determination.
+- Metadata availability checks use HTTP HEAD only; no linked metadata or media payload is downloaded.
+
+#### Milestone 3 — Evidence-based reuse value assessment
+- Added deterministic `assessDigitalValue` scoring with separate historical, research, cultural, technical, recovery and community dimensions.
+- Recovery and community scores remain null until the corresponding wallet scan or verified identity/consent evidence exists. Rights status remains unknown for linked media even where the dataset itself is CC BY 4.0.
+- Added `mc_value_assessments` with evidence confidence, rights, authority, consent, evidence references and limitations.
+- The verified sample's initial assessment is historical 90, research 90, cultural 20, technical 100; recovery and community remain unassessed. The high-potential band means research/archive reuse potential, not financial value or token price.
+
+#### Milestone 4 — User-owned wallet recovery scanner
+- Added a new Supabase Edge Function `memecycle-wallet-recovery` with a five-minute, single-use challenge bound to the signed-in MEMECYCLE user and the requested Solana wallet.
+- The wallet signs a human-readable message using Ed25519; the backend verifies the signature before scanning. No seed phrase or private key is requested or stored.
+- The scanner reads SPL Token and Token-2022 accounts owned by the signed wallet, queries current rent-exempt minimums by account size, and separates Token-2022 excess-lamport withdrawal leads from zero-balance close candidates.
+- The scan and candidate tables are private to the authenticated user through RLS. Gross close and excess amounts are stored separately. Token-2022 extensions and unsupported/native cases require review.
+- The scanner does not build, sign or submit a transaction. It does not scan arbitrary program accounts or mint-authority accounts. A real user scan has not been run because it requires that user's live wallet message signature.
+
+#### Milestone 5 — Integrated workflow
+- Added a user-facing Wallet Recovery section with injected Solana wallet connection, message-only signing and candidate display.
+- Added an administrator control for a bounded historical archive sample and a daily 12:00 UTC Vercel cron route (400 rows/day).
+- Updated README and source-review documents with actual pilot results, limitations and privacy/safety rules.
+- Applied Supabase migrations for reference, value-assessment and wallet scan tables. The HTTP extension was enabled in the `extensions` schema for the controlled source pilot.
+- Added tests for value scoring, wallet-account eligibility, rent authority rules and reference links. Hosted CI and production deployments are the remaining release gates for this branch.

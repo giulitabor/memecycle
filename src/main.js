@@ -3,6 +3,7 @@ import './style.css';
 import { initArchiveExperience } from './archive.js';
 import { initAccountExperience } from './account.js';
 import { initAdminConsole } from './admin.js';
+import { initWalletRecovery } from './wallet-recovery.js';
 
 const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
@@ -20,7 +21,7 @@ document.querySelector('#app').innerHTML = `
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
   <header class="nav wrap">
     <a class="brand" href="#"><span class="brand-mark">M</span><span>MEME<span class="green">CYCLE</span><small>THE DIGITAL AFTERLIFE</small></span></a>
-    <nav><a href="#graveyard">Graveyard</a><a href="#intelligence">Intelligence</a><a href="#reclamation">Reclamation</a><a href="#marketplace">Data marketplace</a></nav>
+    <nav><a href="#graveyard">Graveyard</a><a href="#intelligence">Intelligence</a><a href="#reclamation">Reclamation</a><a href="#wallet-recovery">Wallet recovery</a><a href="#marketplace">Data marketplace</a></nav>
     <a class="nav-cta" href="#graveyard">Explore archive <span>↗</span></a>
   </header>
 
@@ -82,6 +83,11 @@ document.querySelector('#app').innerHTML = `
     </section>
 
     <section class="reclaim-section" id="reclamation"><div class="wrap reclaim-grid"><div><div class="eyebrow">04 — RECLAMATION CENTRE</div><h2>Every story<br>deserves a <em>record.</em></h2><p>Help document a project's history, correct its metadata or propose a community-led archive. Ownership and revival permissions are checked — never assumed.</p><a class="button primary" href="#contribute">Contribute a history <span>↗</span></a></div><div class="reclaim-list"><div><span>01</span><b>Historical archive</b><small>Preserve the project's public record</small><i>↗</i></div><div><span>02</span><b>Metadata correction</b><small>Submit evidence and source links</small><i>↗</i></div><div><span>03</span><b>Community revival</b><small>Propose an authorised second life</small><i>↗</i></div><div><span>04</span><b>Collectible certificate</b><small>Document provenance, not financial value</small><i>↗</i></div></div></div></section>
+
+    <section class="section wrap" id="wallet-recovery">
+      <div class="section-head"><div><div class="eyebrow">05 — PERSONAL ASSET RECOVERY</div><h2>Your wallet.<br><em>Your decision.</em></h2></div><p>Find potential rent deposits in your own Solana token accounts. MEMECYCLE verifies wallet control with a message signature and never requests a transaction during a scan.</p></div>
+      <div id="wallet-recovery-root"></div>
+    </section>
 
     <section class="section wrap" id="marketplace">
       <div class="section-head"><div><div class="eyebrow">05 — DATA MARKETPLACE</div><h2>History becomes<br><em>intelligence.</em></h2></div><p>Structured research products for traders, analysts, developers and AI teams. Start with transparent data access; expand as the archive grows.</p></div>
@@ -163,4 +169,5 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
 loadTokens();
 initArchiveExperience(db);
 initAccountExperience(db);
+initWalletRecovery(db);
 }
