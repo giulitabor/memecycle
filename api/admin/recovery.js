@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { canTransition, hasIndependentAuthorityEvidence, hasExplicitConsentEvidence, hasAuthorityAndConsent } from "../lib/recovery-policy.js";
 
 const json=(res,status,body)=>res.status(status).json(body);
 const trim=(v,n=500)=>String(v??"").slice(0,n);
@@ -7,16 +8,7 @@ const identityStates=new Set(["unverified","candidate","corroborated","verified"
 const authorityStates=new Set(["unknown","wallet_control_verified","candidate_authority","independently_verified","disputed","revoked"]);
 const consentStates=new Set(["not_requested","requested","granted","declined","withdrawn"]);
 const caseStates=new Set(["research","identity_check","awaiting_consent","consent_confirmed","planning","approved","on_hold","closed","rejected"]);
-const transitions={
- research:["identity_check","on_hold","rejected"],
- identity_check:["research","awaiting_consent","on_hold","rejected"],
- awaiting_consent:["identity_check","consent_confirmed","on_hold","rejected"],
- consent_confirmed:["planning","on_hold","rejected"],
- planning:["approved","on_hold","closed"],
- approved:["on_hold","closed"],
- on_hold:["research","identity_check","awaiting_consent","consent_confirmed","planning","closed","rejected"],
- closed:[],rejected:[]
-};
+
 function cleanUrls(value,max=10){
  if(!Array.isArray(value))return[];
  return value.slice(0,max).flatMap(item=>{
@@ -100,12 +92,10 @@ export default async function handler(req,res){
    const authority=authorityStatus||current?.authority_status||"unknown";
    const consent=consentStatus||current?.consent_status||"not_requested";
    if(authority==="independently_verified"){
-    const authorityEvidence=evidence.filter(x=>["authority","project_control","official_announcement","legal_or_governance"].includes(x.type));
-    if(new Set(authorityEvidence.map(x=>x.url)).size<2)return json(res,400,{error:"Independent authority status requires at least two distinct HTTPS evidence sources recorded for human review."});
+    if(!hasIndependentAuthorityEvidence(evidence))return json(res,400,{error:"Independent authority status requires at least two distinct HTTPS evidence sources recorded for human review."});
    }
    if(consent==="granted"){
-    const consentEvidence=evidence.filter(x=>x.type==="explicit_project_consent");
-    if(authority!=="independently_verified"||consentEvidence.length<1)return json(res,400,{error:"Granted consent requires independently verified authority and an explicit-consent evidence record."});
+    if(!hasExplicitConsentEvidence(evidence,authority))return json(res,400,{error:"Granted consent requires independently verified authority and an explicit-consent evidence record."});
    }
    const {data:saved,error}=await db.from("mc_project_identities").upsert({
     mint,project_name:body.project_name===undefined?(current?.project_name??null):trim(body.project_name,180)||null,
@@ -129,12 +119,11 @@ export default async function handler(req,res){
    if(!caseId||!caseStates.has(next))return json(res,400,{error:"A case ID and valid next status are required."});
    const {data:current,error}=await db.from("mc_revival_cases").select("*").eq("id",caseId).maybeSingle();
    if(error)throw error;if(!current)return json(res,404,{error:"Revival case not found."});
-   if(!(transitions[current.case_status]||[]).includes(next))return json(res,409,{error:`Transition from ${current.case_status} to ${next} is not allowed.`});
+   if(!canTransition(current.case_status,next))return json(res,409,{error:`Transition from ${current.case_status} to ${next} is not allowed.`});
    const {data:identity, error:identityError}=await db.from("mc_project_identities").select("authority_status,consent_status").eq("mint",current.mint).maybeSingle();
    if(identityError)throw identityError;
    if(["consent_confirmed","planning","approved"].includes(next)){
-    if(identity?.authority_status!=="independently_verified")return json(res,409,{error:"Project authority must be independently verified before consent confirmation or recovery planning."});
-    if(identity?.consent_status!=="granted")return json(res,409,{error:"Explicit project consent must be recorded before recovery planning."});
+    if(!hasAuthorityAndConsent(identity))return json(res,409,{error:"Independent project authority verification and explicit consent are both required before recovery planning."});
    }
    if(next==="approved"&&(!body.confirm_approval||trim(body.approval_note,1000).length<20))return json(res,400,{error:"Approval requires an explicit admin confirmation and a meaningful approval note."});
    const patch={case_status:next,authority_status:identity?.authority_status||"unknown",consent_status:identity?.consent_status||"not_requested",updated_at:new Date().toISOString()};
@@ -154,7 +143,7 @@ export default async function handler(req,res){
    if(!["consent_confirmed","planning","on_hold"].includes(current.case_status))return json(res,409,{error:"A recovery plan can only be edited after explicit consent has been recorded."});
    const {data:identity,error:identityError}=await db.from("mc_project_identities").select("authority_status,consent_status").eq("mint",current.mint).maybeSingle();
    if(identityError)throw identityError;
-   if(identity?.authority_status!=="independently_verified"||identity?.consent_status!=="granted")return json(res,409,{error:"Authority and explicit consent gates are not satisfied."});
+   if(!hasAuthorityAndConsent(identity))return json(res,409,{error:"Authority and explicit consent gates are not satisfied."});
    const plan=body.plan&&typeof body.plan==="object"&&!Array.isArray(body.plan)?body.plan:{};
    const risks=Array.isArray(body.risk_register)?body.risk_register.slice(0,30):[];
    const {data:saved,error:updateError}=await db.from("mc_revival_cases").update({proposed_recovery_plan:plan,risk_register:risks,updated_at:new Date().toISOString()}).eq("id",caseId).select("*").single();
