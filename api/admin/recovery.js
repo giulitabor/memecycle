@@ -60,6 +60,23 @@ export default async function handler(req,res){
    return json(res,200,{cases:(cases||[]).map(x=>({...x,token:tokenMap.get(x.mint)||null,identity:identityMap.get(x.mint)||null}))});
   }
 
+  if(action==="opportunities"){
+   const limit=Math.max(1,Math.min(Number(body.limit)||30,100));
+   const {data:assessments,error}=await db.from("mc_revival_assessments")
+    .select("id,mint,assessed_at,assessor_version,dormancy_score,revival_viability_score,authority_clarity_score,community_signal_score,data_confidence_score,risk_score,opportunity_score,assessment_status,rationale")
+    .neq("assessment_status","insufficient_evidence").order("opportunity_score",{ascending:false,nullsFirst:false}).limit(limit);
+   if(error)throw error;
+   const mints=[...new Set((assessments||[]).map(x=>x.mint))];
+   const [tokens,identities,cases]=await Promise.all([
+    mints.length?db.from("mc_tokens").select("mint,name,symbol,classification,liquidity_usd,volume_24h_usd,visibility").in("mint",mints):Promise.resolve({data:[],error:null}),
+    mints.length?db.from("mc_project_identities").select("mint,project_name,identity_status,authority_status,consent_status").in("mint",mints):Promise.resolve({data:[],error:null}),
+    mints.length?db.from("mc_revival_cases").select("id,mint,case_status").in("mint",mints):Promise.resolve({data:[],error:null})
+   ]);
+   if(tokens.error)throw tokens.error;if(identities.error)throw identities.error;if(cases.error)throw cases.error;
+   const tm=new Map((tokens.data||[]).map(x=>[x.mint,x])),im=new Map((identities.data||[]).map(x=>[x.mint,x])),cm=new Map((cases.data||[]).map(x=>[x.mint,x]));
+   return json(res,200,{opportunities:(assessments||[]).map(x=>({...x,token:tm.get(x.mint)||null,identity:im.get(x.mint)||null,case:cm.get(x.mint)||null}))});
+  }
+
   if(action==="create_case"){
    const mint=String(body.mint||"").trim();if(!validMint(mint))return json(res,400,{error:"A valid Solana mint address is required."});
    const {data:token,error:tokenError}=await db.from("mc_tokens").select("mint").eq("mint",mint).maybeSingle();
