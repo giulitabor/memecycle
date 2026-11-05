@@ -1,0 +1,1 @@
+create unique index if not exists mc_archive_references_identity_columns_idx on public.mc_archive_references(network,subject_type,subject_address,source_id,external_record_id);
