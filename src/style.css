@@ -14,3 +14,41 @@
 .account-note{font-size:10px;line-height:1.7;color:#819187}.account-panel .form-message{font-size:11px;line-height:1.6;color:#a8dcb5;margin-top:12px}.account-panel .form-message.error{color:#ff9a8e}#account-identity{font-size:11px;color:#bce6c8;overflow-wrap:anywhere}
 #watchlist-items{margin:18px 0}#watchlist-items h4{font-size:12px;color:#bce6c8}.watchlist-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #ffffff14;gap:10px}.watchlist-item code{font-size:10px;color:#a8b9ad}
 @media(max-width:650px){.account-toggle{font-size:9px;padding:9px}.account-panel{top:65px;right:12px}.nav{gap:8px}.nav-cta{display:none}}
+
+
+/* Private research and recovery console */
+.admin-shell{min-height:100vh;background:var(--ink,#07110f);color:var(--paper,#e7eee8);padding:32px max(22px,calc((100vw - 1180px)/2)) 80px}
+.admin-top,.admin-heading,.admin-section-head{display:flex;align-items:center;justify-content:space-between;gap:22px}
+.admin-top{padding-bottom:28px;border-bottom:1px solid rgba(220,240,225,.12);margin-bottom:44px}
+.admin-badge,.admin-state{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#9fbea9;border:1px solid rgba(160,210,175,.25);border-radius:999px;padding:8px 12px}
+.admin-shell h1{font-size:clamp(32px,5vw,54px);line-height:1.02;letter-spacing:-.045em;margin:12px 0}
+.admin-shell h2{font-size:25px;letter-spacing:-.03em;margin:10px 0}
+.admin-shell h3{font-size:17px;margin:8px 0}
+.admin-shell p{color:#a8b8ad;line-height:1.65}
+.admin-card{background:rgba(18,34,28,.82);border:1px solid rgba(190,220,195,.13);border-radius:18px;padding:24px;margin-bottom:20px}
+.admin-login{max-width:540px;margin:7vh auto}
+.admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:22px 0}
+.admin-heading{margin-bottom:24px}
+.admin-form{display:grid;gap:14px;margin-top:20px}
+.admin-form label{display:grid;gap:7px;color:#b8c9bd;font-size:12px;letter-spacing:.04em}
+.admin-form input,.admin-form select,.admin-form textarea{width:100%;border:1px solid rgba(180,215,190,.2);border-radius:9px;background:#091612;color:#edf4ed;padding:12px 13px;font:inherit;min-width:0}
+.admin-form textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.admin-form input:focus,.admin-form select:focus,.admin-form textarea:focus{outline:1px solid #79a989;border-color:#79a989}
+.admin-form .admin-check{display:flex;align-items:center;gap:10px}
+.admin-form .admin-check input{width:auto}
+.admin-message{font-size:12px;min-height:18px;margin:10px 0 0}
+.admin-message.error{color:#ff9c8c}
+.admin-section-head{margin-bottom:18px}
+.admin-list{display:grid;gap:12px}
+.admin-case,.admin-report{background:rgba(4,15,11,.55);border:1px solid rgba(190,220,195,.12);border-radius:12px;padding:16px;display:grid;gap:10px}
+.admin-case>div:first-child,.admin-report>div:first-child{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.admin-case small,.admin-report small{display:block;color:#8da398;font-size:11px;margin-top:4px}
+.admin-case-meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:#a5b8ab;font-size:11px}
+.admin-case code{color:#9cb7a2;font-size:10px;overflow-wrap:anywhere}
+.admin-report p{font-size:13px;margin:0}
+.admin-report pre{max-height:420px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#07100d;padding:14px;border-radius:8px;color:#b8c9bd;font-size:11px}
+.admin-report summary{cursor:pointer;color:#9fc5a8;font-size:12px}
+.admin-empty{padding:18px;border:1px dashed rgba(190,220,195,.2);border-radius:10px;text-align:center}
+.admin-divider{height:1px;background:rgba(190,220,195,.12);margin:24px 0}
+.admin-footnote{font-size:11px!important;max-width:850px;margin:28px auto;text-align:center;color:#7f9386!important}
+@media(max-width:760px){.admin-shell{padding:18px 14px 60px}.admin-grid{grid-template-columns:1fr}.admin-top,.admin-heading,.admin-section-head{align-items:flex-start;flex-direction:column}.admin-card{padding:18px}.admin-case>div:first-child,.admin-report>div:first-child{align-items:flex-start;flex-direction:column}}

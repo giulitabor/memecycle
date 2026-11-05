@@ -9,7 +9,17 @@
     }
   ],
   "crons": [
-    { "path": "/api/cron/discover", "schedule": "0 7 * * *" },
-    { "path": "/api/cron/monitor", "schedule": "0 8 * * *" }
+    {
+      "path": "/api/cron/discover",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/monitor",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/revival",
+      "schedule": "0 10 * * *"
+    }
   ]
 }

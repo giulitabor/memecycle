@@ -239,17 +239,21 @@ export default async function handler(req, res) {
   const {data:recent,error:recentError}=await db.from("mc_ai_research_reports").select("id,created_at").eq("mint",mint).eq("status","completed").gte("created_at",new Date(Date.now()-10*60*1000).toISOString()).order("created_at",{ascending:false}).limit(1);
   if(recentError)return json(res,500,{error:"Could not check recent research runs."});
   if(recent?.length)return json(res,429,{error:"This token was researched in the last ten minutes. Open the existing report or wait before running it again.",report_id:recent[0].id});
-  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,live,solana] = await Promise.all([
+  const [tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult,live,solana] = await Promise.all([
     db.from("mc_tokens").select("mint,chain,name,symbol,classification,lifecycle_status,first_seen_at,last_activity_at,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,data_completeness,reclamation_score,score_breakdown,risk_flags,source_provenance,discovery_sources,primary_pair_address,dex_url,visibility").eq("mint",mint).maybeSingle(),
     db.from("mc_snapshots").select("observed_at,price_usd,market_cap_usd,liquidity_usd,volume_24h_usd,holder_count,source,fdv_usd,price_change_24h_pct,pair_address,dex_id").eq("mint",mint).order("observed_at",{ascending:false}).limit(40),
     db.from("mc_token_pairs").select("pair_address,dex_id,pair_created_at,price_usd,fdv_usd,market_cap_usd,liquidity_usd,volume_24h_usd,price_change_24h_pct,observed_at,url").eq("mint",mint).order("observed_at",{ascending:false}).limit(20),
     db.from("mc_token_events").select("event_type,event_at,source,confidence,details,created_at").eq("mint",mint).order("created_at",{ascending:false}).limit(35),
     db.from("mc_abandonment_assessments").select("assessed_at,market_pair_age_days,pool_last_activity_at,pool_activity_age_days,liquidity_usd,volume_24h_usd,jupiter_is_verified,jupiter_organic_score,corroborating_sources,research_summary,research_coverage,community_research_priority,risk_flags,assessment_status,evidence,assessor_version").eq("mint",mint).order("assessed_at",{ascending:false}).limit(8),
     db.from("mc_reclamation_cases").select("case_type,title,description,evidence,review_status,created_at,submitter_wallet_verified_at").eq("mint",mint).order("created_at",{ascending:false}).limit(15),
+    db.from("mc_onchain_evidence").select("id,evidence_type,subject_address,source,confidence,coverage,observed_at,evidence").eq("mint",mint).order("observed_at",{ascending:false}).limit(60),
+    db.from("mc_revival_assessments").select("id,assessed_at,assessor_version,dormancy_score,revival_viability_score,authority_clarity_score,community_signal_score,data_confidence_score,risk_score,opportunity_score,assessment_status,evidence_manifest,limitations,rationale").eq("mint",mint).order("assessed_at",{ascending:false}).limit(5),
+    db.from("mc_project_identities").select("project_name,website_url,social_links,contact_channels,identity_status,authority_status,consent_status,evidence,last_verified_at,updated_at").eq("mint",mint).maybeSingle(),
+    db.from("mc_revival_cases").select("id,assessment_id,case_status,authority_status,consent_status,proposed_recovery_plan,risk_register,requires_human_approval,approved_at,created_at,updated_at,closed_at").eq("mint",mint).order("created_at",{ascending:false}).limit(10),
     readLiveEvidence(mint),
     readSolanaEvidence(mint)
   ]);
-  const failed=[tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult].find(x=>x.error);
+  const failed=[tokenResult,snapshotResult,pairResult,eventResult,assessmentResult,caseResult,onchainEvidenceResult,revivalAssessmentResult,identityResult,revivalCaseResult].find(x=>x.error);
   if(failed)return json(res,500,{error:"Could not assemble research evidence.",detail:trimText(failed.error.message,220)});
   if(!tokenResult.data)return json(res,404,{error:"Token not found in the MEMECYCLE archive. Run discovery first."});
   const evidenceManifest={};
@@ -258,12 +262,26 @@ export default async function handler(req, res) {
   evidenceManifest.token_record=token;
   add("snapshot",snapshotResult.data); add("pair",pairResult.data); add("event",eventResult.data);
   add("assessment",assessmentResult.data); add("community_case",caseResult.data);
+  add("onchain_evidence",onchainEvidenceResult.data); add("revival_assessment",revivalAssessmentResult.data);
+  evidenceManifest.project_identity=identityResult.data??null;
+  add("revival_case",revivalCaseResult.data);
+  const revivalCaseIds=safeArray(revivalCaseResult.data).map(row=>row.id).filter(Boolean);
+  if(revivalCaseIds.length){
+    const {data:caseEvents,error:caseEventsError}=await db.from("mc_revival_case_events").select("case_id,event_type,actor,details,created_at").in("case_id",revivalCaseIds).order("created_at",{ascending:false}).limit(40);
+    if(caseEventsError)return json(res,500,{error:"Could not load revival case history.",detail:trimText(caseEventsError.message,220)});
+    add("revival_case_event",caseEvents);
+  }
   evidenceManifest.live_dexscreener=live.dexscreener;
   evidenceManifest.live_jupiter=live.jupiter;
   evidenceManifest.solana_rpc=solana;
   const evidence={mint,assembled_at:new Date().toISOString(),evidence_manifest:evidenceManifest,
-    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
+    coverage:{snapshots:safeArray(snapshotResult.data).length,pairs:safeArray(pairResult.data).length,events:safeArray(eventResult.data).length,assessments:safeArray(assessmentResult.data).length,community_cases:safeArray(caseResult.data).length,onchain_evidence:safeArray(onchainEvidenceResult.data).length,revival_assessments:safeArray(revivalAssessmentResult.data).length,project_identity:Boolean(identityResult.data),revival_cases:safeArray(revivalCaseResult.data).length,live_dexscreener:live.dexscreener.status,live_jupiter:live.jupiter.status,solana_rpc:solana.status},
     source_limitations:["Historical snapshots only cover dates MEMECYCLE has retained.","Largest-account RPC data covers only the top 20 token accounts and is not a full beneficial-holder census; AMM vaults may dominate.","One pool-account signature sample is not a full token-activity analysis.","Provider risk and verification fields are provider-reported.","Community reports are unverified unless a review status and corroborating evidence support them."]};
+  const {data:researchJob,error:jobError}=await db.from("mc_research_jobs").insert({
+    mint,job_type:"ai_dossier",status:"running",priority:70,attempts:1,max_attempts:3,
+    locked_at:new Date().toISOString(),locked_by:"api/admin/research"
+  }).select("id").single();
+  if(jobError)return json(res,500,{error:"Could not queue research job.",detail:trimText(jobError.message,220)});
   try {
     const generated=await generateResearch(evidence);
     const summary=trimText(generated.report.executive_summary,1800);
@@ -273,10 +291,15 @@ export default async function handler(req, res) {
       generation_id:generated.generationId,input_tokens:generated.usage.prompt_tokens??null,
       output_tokens:generated.usage.completion_tokens??null,created_by:user.id
     }).select("id,mint,status,model,prompt_version,summary,report,created_at,input_tokens,output_tokens").single();
-    if(saveError)return json(res,500,{error:"AI research completed but could not be saved.",detail:trimText(saveError.message,220)});
+    if(saveError){
+      await db.from("mc_research_jobs").update({status:"failed",error_message:trimText(saveError.message,300),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
+      return json(res,500,{error:"AI research completed but could not be saved.",detail:trimText(saveError.message,220)});
+    }
+    await db.from("mc_research_jobs").update({status:"succeeded",result:{report_id:saved.id,model:MODEL,coverage:evidence.coverage},finished_at:new Date().toISOString(),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
     return json(res,200,{report:saved,coverage:evidence.coverage,model:MODEL});
   } catch(e) {
     await db.from("mc_ai_research_reports").insert({mint,status:"failed",model:MODEL,prompt_version:PROMPT_VERSION,summary:"Research generation failed.",report:{},evidence_manifest:{coverage:evidence.coverage},error_message:trimText(e.message,500),created_by:user.id});
+    await db.from("mc_research_jobs").update({status:"failed",error_message:trimText(e.message,400),updated_at:new Date().toISOString(),locked_at:null,locked_by:null}).eq("id",researchJob.id);
     return json(res,e.status||502,{error:e.message||"AI research failed."});
   }
 }
