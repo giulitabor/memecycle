@@ -15,11 +15,11 @@
     },
     {
       "path": "/api/cron/monitor",
-      "schedule": "0 8 * * *"
+      "schedule": "0 20 * * *"
     },
     {
       "path": "/api/cron/revival",
-      "schedule": "0 10 * * *"
+      "schedule": "0 22 * * *"
     }
   ]
 }
