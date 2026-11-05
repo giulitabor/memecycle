@@ -131,3 +131,9 @@ Started: 2026-11-05 (Europe/Rome)
 - Redeployed `memecycle-revival` as version 2 ACTIVE.
 - Production Vercel environment names confirm `BITQUERY_TOKEN`, `HELIUS_RPC`, `CRON_SECRET`, `SUPABASE_URL` and production-only `SUPABASE_SERVICE_ROLE_KEY` are present. `DEEPSEEK_API_KEY` is not present yet; generative AI dossier creation remains dependent on the user adding that key. No secret values were read into this log.
 - No production monitor or revival run is recorded yet. The next scheduled production runs are the first live integration check; verify source errors, RPC compatibility, job persistence and assessment quality before treating the pipeline as operational.
+
+### Authority and consent control hardening — 2026-11-05
+- Added explicit human-attestation checkboxes to the private admin identity form. Setting independently verified authority now requires two distinct HTTPS evidence sources plus an affirmative human-review confirmation.
+- Recording consent as granted requires independently verified authority, an explicit-project-consent evidence record, and a separate human confirmation.
+- Metadata edits preserve existing evidence when the operator leaves the evidence fields blank; changing evidence for an already-verified identity requires renewed confirmation.
+- Added two policy tests. Combined scoring and recovery-policy suite now passes 12/12.
