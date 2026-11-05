@@ -164,3 +164,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Hardened revival queue fairness: assessments use a 90-day cooldown so the first three tokens cannot starve the rest of the archive; failed/partial jobs receive a six-hour retry backoff and at most three attempts; stale running jobs can be reclaimed after 20 minutes; successful and cancelled jobs are not repeated.
 - Removed automatic public publication from the monitor. Strong market inactivity evidence may create a private human-review candidate, but the worker now always leaves publication eligibility false and never changes token visibility. Relaunch, outreach, wallet actions and public archive publication remain separately gated.
 - Code changes are on branch `agent/memecycle-live-verification-20261105`; production worker redeployment and first end-to-end execution remain pending preview/build verification and a successful authenticated invocation.
+
+
+### Queue-policy regression coverage and CI — 2026-11-05
+- Extracted revival candidate selection and retry policy into `supabase/functions/memecycle-revival/queue-policy.ts`.
+- Added Deno tests for unassessed-first fairness, 90-day assessment cooldown, six-hour retry backoff, max-attempt enforcement, stale-lock recovery, and reassessment after cooldown.
+- Added GitHub Actions workflow to run the existing Node test suite, Vite production build, Deno type checks for both Edge Functions, and the queue-policy tests.
+- A Vercel preview build of the preceding source commit completed successfully; it did not include the final queue-policy test/workflow commit. A fresh preview build is required for the latest branch head.
+- CI workflow run status has not yet been returned by the GitHub connector; do not treat tests as passed until a completed run is observed.
