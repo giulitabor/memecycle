@@ -266,3 +266,9 @@ Started: 2026-11-05 (Europe/Rome)
 - Deno checks: discovery worker, monitor function and revival function all passed.
 - Revival queue-policy Deno tests: 7 passed, 0 failed.
 - The PR remains unmerged and no production deployment was triggered.
+
+
+### Final read-only production snapshot — 2026-11-05 21:45 UTC
+- Database totals after the scheduled smoke test: 180 tokens, 177 snapshots, 1 revival assessment, 7 on-chain evidence records, 1 successful on-chain research job, 0 recovery cases, 0 project identities, and 0 abandonment assessments.
+- Persisted discovery window: oldest `first_seen_at` 2026-11-02 16:21:52 UTC; newest 2026-11-05 21:18:33 UTC. The archive is not yet old enough to represent dormant projects.
+- The no-pair monitor fix and pool-aware holder calculation remain in PR #4 only; production Edge Functions have not been changed.
