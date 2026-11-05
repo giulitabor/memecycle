@@ -173,7 +173,7 @@ async function backfillHuggingFace(pagesPerConfig:number){
    }
   }
  }
- let revisionChanged=false;
+ let revisionChanged=false,revisionRecheckFailed=false;
  try{
   const latest:any=await getHuggingFace("https://huggingface.co/api/datasets/"+dataset);
   revisionChanged=String(latest.sha??"")!==revision;
