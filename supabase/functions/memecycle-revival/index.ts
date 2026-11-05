@@ -221,8 +221,25 @@ async function run(limit: number, suppliedRpc: string | null) {
   if (assessmentReadError) throw assessmentReadError;
   if (jobReadError) throw jobReadError;
 
+  const queueTokens = (tokens || []).map((row: any) => {
+    const provenance = row.source_provenance || {};
+    const bitqueryCreatedAt = provenance.bitquery_launch?.created_at;
+    const pumpCreatedAt = provenance.pumpfun?.created ?? provenance.pumpfun?.launch_at ?? null;
+    let launchAt: string | null = null;
+    if (typeof bitqueryCreatedAt === "string" && Number.isFinite(Date.parse(bitqueryCreatedAt))) {
+      launchAt = new Date(bitqueryCreatedAt).toISOString();
+    } else if (pumpCreatedAt != null) {
+      const numeric = Number(pumpCreatedAt);
+      if (Number.isFinite(numeric)) {
+        launchAt = new Date(numeric > 1e12 ? numeric : numeric * 1000).toISOString();
+      } else if (typeof pumpCreatedAt === "string" && Number.isFinite(Date.parse(pumpCreatedAt))) {
+        launchAt = new Date(pumpCreatedAt).toISOString();
+      }
+    }
+    return { ...row, research_priority_at: launchAt || row.first_seen_at || null };
+  });
   const { batch, latestJobByMint } = selectRevivalBatch({
-    tokens: tokens || [], assessments: assessments || [], jobs: jobs || [], nowMs: Date.now(), limit
+    tokens: queueTokens, assessments: assessments || [], jobs: jobs || [], nowMs: Date.now(), limit
   });
   const results: any[] = [];
   const errors: any[] = [];
