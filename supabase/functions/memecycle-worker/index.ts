@@ -146,7 +146,7 @@ async function backfillHuggingFace(pagesPerConfig:number){
     for(const [mint,item] of unique){
      const row=item.row,prev:any=old.get(mint)??{},providers=[...new Set([...(prev.discovery_sources??[]),"huggingface:"+dataset])];
      const launchedAt=typeof row.launched_at==="string"?row.launched_at:(Number.isFinite(Number(row.t0))?new Date(Number(row.t0)*1000).toISOString():null);
-     const metadataUri=typeof row.uri==="string"&&/^https?:\/\//i.test(row.uri)?row.uri:null;
+     const metadataUri=typeof row.uri==="string"&&/^(https?:\/\/|ipfs:\/\/|ar:\/\/)/i.test(row.uri)?row.uri:null;
      const claims={rugged_provider_flag:row.rugged??null,graduated_provider_flag:row.graduated??null,rugged_not_graduated:row.rugged_not_graduated??null,rug_branch_inferred:row.rug_branch_inferred??null,decoder_complete:row.decoder_complete??null,features_basis:row.features_basis??null,dev_share:row.dev_share??null,f10_dev_share:row.f10_dev_share??null,f10_insider_share:row.f10_insider_share??null,f10_bundle_wallets:row.f10_bundle_wallets??null,f10_rep_n:row.f10_rep_n??null,f10_rep_rug:row.f10_rep_rug??null,f10_rep_grad:row.f10_rep_grad??null,f10_n_buys:row.f10_n_buys??null,peak_rs:row.peak_rs??null,terminal_rs:row.terminal_rs??null,quote_asset:row.quote_asset??null,quote_basis:row.quote_basis??null};
      const rowLocator="https://datasets-server.huggingface.co/rows?dataset="+encodeURIComponent(dataset)+"&config="+config+"&split=train&offset="+item.rowIdx+"&length=1";
      const sourceRecord={dataset,config,split:"train",row_idx:item.rowIdx,source_revision:revision,launch_at:launchedAt,creator_candidate:valid(row.creator)?row.creator:null,metadata_uri:metadataUri,provider_claims:claims,license:"CC BY 4.0",attribution:"loopholetape, pump.fun launches with outcomes",row_locator:rowLocator};
@@ -156,8 +156,8 @@ async function backfillHuggingFace(pagesPerConfig:number){
     }
     if(tokenRows.length){const {error:upsertTokens}=await db.from("mc_tokens").upsert(tokenRows,{onConflict:"mint"});if(upsertTokens)throw upsertTokens;}
     if(referenceRows.length){const {error:upsertRefs}=await db.from("mc_archive_references").upsert(referenceRows,{onConflict:"network,subject_type,subject_address,source_id,external_record_id"});if(upsertRefs)throw upsertRefs;}
-    totalRows+=rows.length;totalTokens+=tokenRows.length;totalRefs+=referenceRows.length;cursor=pageIndex+1;
-    const {error:sourceUpdate}=await db.from("mc_discovery_sources").update({cursor_value:cursor,records_seen:Number(src.records_seen??0)+totalRows,last_success_at:now,last_error:null,enabled:cursor<100,updated_at:now}).eq("source_key",sourceKey);
+    totalRows+=rows.length;totalTokens+=tokenRows.length;totalRefs+=referenceRows.length;cursor=pageIndex+1;sourceRowsSeen+=rows.length;
+    const {error:sourceUpdate}=await db.from("mc_discovery_sources").update({cursor_value:cursor,records_seen:sourceRowsSeen,last_success_at:now,last_error:null,enabled:cursor<100,updated_at:now}).eq("source_key",sourceKey);
     if(sourceUpdate)throw sourceUpdate;
     summary.pages.push({config,page_index:pageIndex,offset,rows:rows.length,unique_mints:tokenRows.length,references:referenceRows.length,next_sample_page:cursor});
    }catch(error){
