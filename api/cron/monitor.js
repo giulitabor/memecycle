@@ -36,7 +36,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         action: "monitor",
-        limit: 50,
+        limit: 5,
+        backfill_limit: 0,
         rpc_url: process.env.HELIUS_RPC || null
       }),
       signal: AbortSignal.timeout(250000)
