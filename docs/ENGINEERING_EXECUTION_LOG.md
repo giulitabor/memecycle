@@ -124,3 +124,10 @@ Started: 2026-11-05 (Europe/Rome)
 - Supabase read-back confirms `memecycle-worker` v11 ACTIVE, `memecycle-monitor` v12 ACTIVE, and `memecycle-revival` v1 ACTIVE.
 - Supabase security advisor now reports only the leaked-password-protection warning. Explicit client-deny RLS policies are present on all eight internal research/recovery tables.
 - Important: production deployment/build success is not an end-to-end worker test. The database still has no monitor, on-chain investigation, revival assessment, research-job or recovery-case run recorded. The next scheduled executions and first admin-authenticated test remain release verification tasks.
+
+### Scoring calibration follow-up — 2026-11-05
+- Tightened the revival scoring model after reviewing sparse-data behavior: viability and risk now remain unmeasured until at least half of their weighted inputs are present; unknown authority is stored as null rather than a zero score.
+- Added a regression test for sparse evidence. Combined suite now passes 10/10 tests (6 scoring, 4 recovery policy).
+- Redeployed `memecycle-revival` as version 2 ACTIVE.
+- Production Vercel environment names confirm `BITQUERY_TOKEN`, `HELIUS_RPC`, `CRON_SECRET`, `SUPABASE_URL` and production-only `SUPABASE_SERVICE_ROLE_KEY` are present. `DEEPSEEK_API_KEY` is not present yet; generative AI dossier creation remains dependent on the user adding that key. No secret values were read into this log.
+- No production monitor or revival run is recorded yet. The next scheduled production runs are the first live integration check; verify source errors, RPC compatibility, job persistence and assessment quality before treating the pipeline as operational.
