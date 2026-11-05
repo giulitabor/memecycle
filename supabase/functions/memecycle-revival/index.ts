@@ -212,18 +212,58 @@ async function run(limit: number, suppliedRpc: string | null) {
     .select("mint,name,symbol,primary_pair_address,liquidity_usd,volume_24h_usd,holder_count,source_provenance,first_seen_at")
     .order("first_seen_at", { ascending: true }).limit(500);
   if (tokenError) throw tokenError;
-  const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
-  const { data: recent, error: recentError } = await db.from("mc_revival_assessments")
-    .select("mint").gte("assessed_at", cutoff).order("assessed_at", { ascending: false }).limit(1000);
-  if (recentError) throw recentError;
-  const done = new Set((recent || []).map((row: any) => row.mint));
-  const batch = (tokens || []).filter((row: any) => validMint(row.mint) && !done.has(row.mint)).slice(0, Math.max(1, Math.min(limit, 3)));
+  // Keep an initial assessment pass moving across the whole archive. A 7-day
+  // cooldown combined with first_seen_at ordering would repeatedly select the
+  // first three mints after day seven and starve every later token.
+  const assessmentCooldownMs = 90 * 86400000;
+  const retryBackoffMs = 6 * 60 * 60 * 1000;
+  const staleLockMs = 20 * 60 * 1000;
+  const nowMs = Date.now();
+  const [{ data: assessments, error: assessmentReadError }, { data: jobs, error: jobReadError }] = await Promise.all([
+    db.from("mc_revival_assessments").select("mint,assessed_at").order("assessed_at", { ascending: false }).limit(5000),
+    db.from("mc_research_jobs").select("mint,status,attempts,max_attempts,updated_at,locked_at,available_at")
+      .eq("job_type", "onchain_investigation").order("updated_at", { ascending: false }).limit(5000)
+  ]);
+  if (assessmentReadError) throw assessmentReadError;
+  if (jobReadError) throw jobReadError;
+
+  const latestAssessmentByMint = new Map<string, any>();
+  for (const row of assessments || []) if (row.mint && !latestAssessmentByMint.has(row.mint)) latestAssessmentByMint.set(row.mint, row);
+  const latestJobByMint = new Map<string, any>();
+  for (const row of jobs || []) if (row.mint && !latestJobByMint.has(row.mint)) latestJobByMint.set(row.mint, row);
+
+  const eligible = (tokens || []).filter((row: any) => {
+    if (!validMint(row.mint)) return false;
+    const assessed = latestAssessmentByMint.get(row.mint);
+    if (assessed && nowMs - Date.parse(assessed.assessed_at) < assessmentCooldownMs) return false;
+
+    const job = latestJobByMint.get(row.mint);
+    if (!job) return true;
+    const attempts = Number(job.attempts || 0);
+    const maxAttempts = Number(job.max_attempts || 3);
+    if (attempts >= maxAttempts || job.status === "succeeded" || job.status === "cancelled") return false;
+
+    if (job.status === "partial" || job.status === "failed") {
+      return nowMs - Date.parse(job.updated_at) >= retryBackoffMs;
+    }
+    if (job.status === "running") {
+      return !job.locked_at || nowMs - Date.parse(job.locked_at) >= staleLockMs;
+    }
+    if (job.status === "queued") {
+      return !job.available_at || Date.parse(job.available_at) <= nowMs;
+    }
+    return false;
+  });
+
+  const batch = eligible.slice(0, Math.max(1, Math.min(limit, 3)));
   const results: any[] = [];
   const errors: any[] = [];
   for (const token of batch) {
+    const priorJob = latestJobByMint.get(token.mint);
+    const attemptNumber = priorJob ? Number(priorJob.attempts || 0) + 1 : 1;
     const { data: job, error: jobError } = await db.from("mc_research_jobs").insert({
       mint: token.mint, job_type: "onchain_investigation", status: "running", priority: 60,
-      attempts: 1, max_attempts: 3, locked_at: new Date().toISOString(), locked_by: VERSION
+      attempts: attemptNumber, max_attempts: 3, locked_at: new Date().toISOString(), locked_by: VERSION
     }).select("id").single();
     if (jobError) { errors.push({ mint: token.mint, error: jobError.message }); continue; }
     try {
@@ -238,7 +278,12 @@ async function run(limit: number, suppliedRpc: string | null) {
     }
   }
   const status = errors.length ? (results.length ? "partial" : "failed") : "succeeded";
-  const summary = { worker_version: VERSION, selected: batch.length, completed: results.length, errors: errors.length, rpc_calls_budget: "maximum 3 tokens per run; per-token calls are bounded", no_publication: true, no_outreach: true, no_wallet_actions: true };
+  const summary = {
+    worker_version: VERSION, selected: batch.length, completed: results.length, errors: errors.length,
+    rpc_calls_budget: "maximum 3 tokens per run; per-token calls are bounded",
+    assessment_cooldown_days: 90, retry_backoff_hours: 6, maximum_attempts_per_token: 3,
+    no_publication: true, no_outreach: true, no_wallet_actions: true
+  };
   await db.from("mc_ingestion_runs").update({
     status, candidates_seen: tokens?.length ?? 0, tokens_upserted: results.length,
     snapshots_inserted: 0, classifications_written: results.length, error_count: errors.length,
