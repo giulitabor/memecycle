@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreRevival } from "./scoring.js";
-import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.js";
+import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
