@@ -301,3 +301,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Added tests for exact-mint lookup URL construction, canonical links, and safe handling of IPFS/Arweave/HTTP metadata URI schemes.
 - Updated source review: the SolArchive Hugging Face viewer currently reports a Parquet read error and is not eligible for ingestion until a reproducible sample passes validation.
 - This locator helper is on branch `agent/memecycle-external-reference-links-20261105`; it is not deployed until CI, merge and Supabase function deployment complete.
+
+
+### 2026-11-05 — External archive reference index release
+- PR #6 merged to `main` as commit `ec5b269d52df85f5313ae0227552092b514a2b7f` after hosted CI passed: full Node test suite, Vite production build and Deno checks for discovery, monitor and revival.
+- Deployed `memecycle-revival` as Supabase Edge Function v7 ACTIVE with JWT verification enabled.
+- Verified the live bundle contains the reference helper, exact-mint Hugging Face Dataset Viewer filter links for all four configurations, the `reference_only_not_fetched` status, rent estimator, and pool-aware holder aggregation.
+- The links are persisted as `archive_references` evidence and inside the revival evidence manifest. They point to the external dataset and canonical Solana/DEX records; no dataset rows or media are copied. The HF source has not yet been queried from production, so row-match and revision validation remain a separate pilot.
+- No Vercel deployment was needed for this backend-only change; no public frontend behavior changed. No wallet transactions, closures, burns or SOL transfers were performed.
