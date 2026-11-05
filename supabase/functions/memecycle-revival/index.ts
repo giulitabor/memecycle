@@ -177,7 +177,7 @@ async function investigateToken(token: any, endpoint: string) {
     const { error: metadataRefError } = await db.from("mc_archive_references").upsert({
       network: "solana-mainnet", subject_type: "metadata", subject_address: mint,
       source_id: metadataSource, external_record_id: pumpfunMetadataUri, locator_url: pumpfunMetadataUri,
-      retrieval_status: metadataStatus.status, evidence_role: "locator", last_checked_at: new Date().toISOString(),
+      retrieval_status: metadataStatus.status, evidence_role: "locator", last_checked_at: metadataStatus.status === "reference_only" ? null : new Date().toISOString(),
       normalized_facts: { http_status: metadataStatus.httpStatus, content_type: metadataStatus.contentType },
       coverage_notes: "Only metadata URI availability was checked; no metadata JSON, image or media payload was downloaded."
     }, { onConflict: "network,subject_type,subject_address,source_id,external_record_id" });
