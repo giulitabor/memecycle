@@ -26,7 +26,7 @@ document.querySelector('#app').innerHTML = `
       <div class="hero-grid">
         <div>
           <h1>Nothing digital<br>should <em>disappear.</em></h1>
-          <p class="hero-copy">The market may move on. The data remains. MEMECYCLE preserves abandoned tokens, turns their histories into intelligence, and gives communities tools to reclaim their digital legacy.</p>
+          <p class="hero-copy">The market may move on. The data remains. MEMECYCLE preserves the public history of Solana tokens, turns recorded market traces into evidence-led intelligence, and gives communities a way to document a project's digital history.</p>
           <div class="hero-actions"><a class="button primary" href="#graveyard">Explore the graveyard <span>↗</span></a><a class="button ghost" href="#how">How it works <span>↓</span></a></div>
           <div class="trust-row"><span>◈ SOLANA NATIVE</span><span>◈ DATA WITH PROVENANCE</span><span>◈ PLATFORM FIRST</span></div>
         </div>
@@ -49,7 +49,7 @@ document.querySelector('#app').innerHTML = `
     <section class="section wrap" id="how">
       <div class="section-head"><div><div class="eyebrow">01 — THE PROCESS</div><h2>From forgotten<br><em>to understood.</em></h2></div><p>We don't promise to make a token valuable. We make its history useful, searchable and verifiable.</p></div>
       <div class="steps">
-        <article class="step"><div class="step-icon">⌕</div><span class="step-no">01 / DISCOVER</span><h3>Find what remains</h3><p>Identify dormant and abandoned assets across Solana. Capture mint identity, market traces, holders and available metadata.</p></article>
+        <article class="step"><div class="step-icon">⌕</div><span class="step-no">01 / DISCOVER</span><h3>Find what remains</h3><p>Identify Solana tokens whose market activity has changed. Capture mint identity, market traces, available holder indicators and metadata.</p></article>
         <article class="step"><div class="step-icon">▤</div><span class="step-no">02 / PRESERVE</span><h3>Protect the record</h3><p>Build a provenance-aware historical archive. Keep observations, timestamps, sources and gaps intact.</p></article>
         <article class="step"><div class="step-icon">◈</div><span class="step-no">03 / UNDERSTAND</span><h3>Extract intelligence</h3><p>Analyse observable market conditions, source coverage and lifecycle evidence with versioned, explainable rules. On-chain activity and community signals are added only when independently evidenced.</p></article>
         <article class="step"><div class="step-icon">⟳</div><span class="step-no">04 / RECLAIM</span><h3>Create a second life</h3><p>Support historical collectibles, research datasets and community-led revival projects with proper permissions.</p></article>
@@ -77,7 +77,7 @@ document.querySelector('#app').innerHTML = `
       </div>
     </section>
 
-    <section class="reclaim-section" id="reclamation"><div class="wrap reclaim-grid"><div><div class="eyebrow">04 — RECLAMATION CENTRE</div><h2>Every story<br>deserves a <em>record.</em></h2><p>Help document the history of an abandoned project, correct its metadata or propose a community-led archive. Ownership and revival permissions are checked — never assumed.</p><a class="button primary" href="#contribute">Contribute a history <span>↗</span></a></div><div class="reclaim-list"><div><span>01</span><b>Historical archive</b><small>Preserve the project's public record</small><i>↗</i></div><div><span>02</span><b>Metadata correction</b><small>Submit evidence and source links</small><i>↗</i></div><div><span>03</span><b>Community revival</b><small>Propose an authorised second life</small><i>↗</i></div><div><span>04</span><b>Collectible certificate</b><small>Document provenance, not financial value</small><i>↗</i></div></div></div></section>
+    <section class="reclaim-section" id="reclamation"><div class="wrap reclaim-grid"><div><div class="eyebrow">04 — RECLAMATION CENTRE</div><h2>Every story<br>deserves a <em>record.</em></h2><p>Help document a project's history, correct its metadata or propose a community-led archive. Ownership and revival permissions are checked — never assumed.</p><a class="button primary" href="#contribute">Contribute a history <span>↗</span></a></div><div class="reclaim-list"><div><span>01</span><b>Historical archive</b><small>Preserve the project's public record</small><i>↗</i></div><div><span>02</span><b>Metadata correction</b><small>Submit evidence and source links</small><i>↗</i></div><div><span>03</span><b>Community revival</b><small>Propose an authorised second life</small><i>↗</i></div><div><span>04</span><b>Collectible certificate</b><small>Document provenance, not financial value</small><i>↗</i></div></div></div></section>
 
     <section class="section wrap" id="marketplace">
       <div class="section-head"><div><div class="eyebrow">05 — DATA MARKETPLACE</div><h2>History becomes<br><em>intelligence.</em></h2></div><p>Structured research products for traders, analysts, developers and AI teams. Start with transparent data access; expand as the archive grows.</p></div>
