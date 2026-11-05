@@ -24,6 +24,10 @@ jobs:
           node-version: 26
       - name: Install dependencies
         run: npm install
+      - name: Report dependency vulnerabilities
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e "const a=require('/tmp/npm-audit.json'); for (const [name,v] of Object.entries(a.vulnerabilities || {})) console.log(JSON.stringify({name,severity:v.severity,isDirect:v.isDirect,range:v.range,via:(v.via || []).map(x => typeof x === 'string' ? x : x.title),fixAvailable:v.fixAvailable}));"
       - name: Run test suite
         run: npm test
       - name: Build application
@@ -42,8 +46,8 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check monitor function
-        run: deno --node-modules-dir=auto check supabase/functions/memecycle-monitor/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/memecycle-monitor/index.ts
       - name: Check revival function
         run: deno --node-modules-dir=auto check supabase/functions/memecycle-revival/index.ts
       - name: Test revival queue policy
-        run: deno --node-modules-dir=auto test supabase/functions/memecycle-revival/queue-policy.deno.ts
+        run: deno test --node-modules-dir=auto supabase/functions/memecycle-revival/queue-policy.deno.ts
