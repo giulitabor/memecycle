@@ -22,7 +22,7 @@ test("separates zero-balance close candidates from excess withdrawals", () => {
     ],
     rentMinimumBySpace: { "165": "2000000" }
   });
-  assert.equal(result.token_accounts[0].potential_close_candidate, true);
+  assert.equal(result.token_accounts[0].potential_close_candidate, true);\n  assert.equal(result.token_accounts[0].potential_excess_withdrawal_candidate, false);
   assert.equal(result.token_accounts[0].potential_excess_lamports_raw, "1000000");
   assert.equal(result.token_accounts[1].potential_close_candidate, false);
   assert.equal(result.token_accounts[1].potential_excess_withdrawal_candidate, false);
@@ -35,4 +35,16 @@ test("missing rent data stays unknown rather than becoming zero recovery", () =>
   });
   assert.equal(result.mint.potential_excess_lamports_raw, null);
   assert.equal(result.total_potential_excess_lamports_raw, "0");
+});
+
+test("does not mark a token account closable when a different close authority is set", () => {
+  const result = assessRentRecovery({
+    mintAddress: "Mint",
+    tokenAccounts: [
+      { address: "OtherAuthority", account: { lamports: 2000000, space: 165, owner: "TokenProgram", data: { parsed: { info: { owner: "WalletA", closeAuthority: "WalletB", tokenAmount: { amount: "0" } } } } } }
+    ],
+    rentMinimumBySpace: { "165": "2000000" }
+  });
+  assert.equal(result.token_accounts[0].potential_close_candidate, false);
+  assert.equal(result.token_accounts[0].close_authority, "WalletB");
 });
