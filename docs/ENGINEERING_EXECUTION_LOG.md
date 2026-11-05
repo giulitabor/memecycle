@@ -248,3 +248,12 @@ Started: 2026-11-05 (Europe/Rome)
 - The monitor now fails the per-token run if this assessment insert fails, rather than silently skipping the queue checkpoint.
 - Added two Node regression tests. The combined seven-test holder/no-pair suite passed with Node's built-in test runner.
 - This change has not been deployed to production; the existing deployed monitor remains v0.3.0 until reviewed, merged and deployed.
+
+
+### First live on-chain investigation detail — 2026-11-05
+- Investigated mint `C3A64RsYtc1WT5AHGQ7oA7VUDUgCXhvr4u2qA1TcS5wF` using Solana JSON-RPC. The mint account reports 6 decimals and supply `1000000000000000` raw units; mint and freeze authorities are both revoked at observation time.
+- The sole largest token account's parsed owner is `BCGxtjq8qmo8LSq4wEeM1jY9m2mcyq4n4eVX9286gPcS`, which is also the recorded primary DEX pool address. Its 100% reserve explains why the previous holder-concentration calculation was invalid; it is not evidence that a person owns 100% of supply.
+- One latest-signature lookup on that pool returned 2026-11-02 00:08:11 UTC. The pool was only about 3.88 days old at assessment time, so this is not a dormant-project finding.
+- The fee payer from the oldest available initializeMint transaction is a creator candidate, not verified identity. It matched the pumpdata.fun creator field; pumpdata.fun reports 197 earlier launches and zero graduations for that wallet. This is provider-reported creator-history context, not independent proof of ownership or intent.
+- The assessment remains `insufficient_evidence`; no recovery case, publication, outreach, or wallet action was created.
+- Combined seven-test Node regression suite passed. The new monitor no-pair assessment path is not yet deployed.
