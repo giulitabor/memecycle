@@ -28,7 +28,7 @@ export function aggregateNonPoolHolders(owners, supplyRaw, excludedAddresses = [
       continue;
     }
     const amountText = String(row?.amount ?? "");
-    if (!/^\\d+$/.test(amountText)) {
+    if (!/^\d+$/.test(amountText)) {
       invalidAccountCount += 1;
       continue;
     }
@@ -37,7 +37,7 @@ export function aggregateNonPoolHolders(owners, supplyRaw, excludedAddresses = [
   }
 
   const supplyText = String(supplyRaw ?? "");
-  const validSupply = /^\\d+$/.test(supplyText) && BigInt(supplyText) > 0n;
+  const validSupply = /^\d+$/.test(supplyText) && BigInt(supplyText) > 0n;
   const supply = validSupply ? BigInt(supplyText) : null;
   const holders = [...grouped.entries()]
     .map(([owner, amount]) => ({
