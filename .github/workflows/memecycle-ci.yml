@@ -45,6 +45,8 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Check discovery worker
+        run: deno check --node-modules-dir=auto --import-map=supabase/functions/memecycle-worker/deno.json supabase/functions/memecycle-worker/index.ts
       - name: Check monitor function
         run: deno check --node-modules-dir=auto supabase/functions/memecycle-monitor/index.ts
       - name: Check revival function
