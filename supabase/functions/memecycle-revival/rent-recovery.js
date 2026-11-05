@@ -8,7 +8,7 @@ function validUInt(value) {
   return UINT.test(String(value ?? ""));
 }
 
-export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [], rentMinimumBySpace = {} }) {
+export function assessRentRecovery({ mintAddress, mintAccount, tokenAccounts = [], rentMinimumBySpace = {} }: { mintAddress: string; mintAccount: any; tokenAccounts?: any[]; rentMinimumBySpace?: Record<string, string> }) {
   const inspect = (address, account, kind, parsedInfo = {}) => {
     const space = Number(account?.space ?? account?.data?.space);
     const lamports = String(account?.lamports ?? "");
