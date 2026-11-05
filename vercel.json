@@ -11,6 +11,10 @@
   "crons": [
     {
       "path": "/api/cron/discover",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/verify-discovery",
       "schedule": "0 20 * * *"
     },
     {
