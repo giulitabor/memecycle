@@ -8,9 +8,24 @@ const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 async function get(url:string,accept="application/json"){const r=await fetch(url,{headers:{accept,"user-agent":"MEMECYCLE/0.2"},signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error(`HTTP ${r.status} from ${new URL(url).hostname}`);return await r.json();}
 async function rpcCall(endpoint:string,method:string,params:any[]){const u=new URL(endpoint);if(u.protocol!=="https:"||!(u.hostname==="mainnet.helius-rpc.com"||u.hostname.endsWith(".helius-rpc.com")||u.hostname==="api.mainnet-beta.solana.com"))throw new Error("Unsupported Solana RPC host");const r=await fetch(u.href,{method:"POST",headers:{"content-type":"application/json","user-agent":"MEMECYCLE/0.2"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params}),signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error(`Solana RPC HTTP ${r.status}`);const j:any=await r.json();if(j.error)throw new Error(String(j.error.message??"Solana RPC error"));return j.result;}
 function state(liq:number|null,vol:number|null){if(liq===null&&vol===null)return"unverified";if((liq??0)<1000&&(vol??0)<500)return"illiquid";if((liq??0)>=10000&&(vol??0)>=5000)return"active";return"declining";}
+function launchPriorityMs(t:any):number{
+ const bitquery=t.source_provenance?.bitquery_launch?.created_at;
+ if(typeof bitquery==="string"){const v=Date.parse(bitquery);if(Number.isFinite(v))return v;}
+ const pump=t.source_provenance?.pumpfun?.created??t.source_provenance?.pumpfun?.launch_at??null;
+ if(pump!=null){const n=Number(pump);if(Number.isFinite(n))return n>1e12?n:n*1000;const v=Date.parse(String(pump));if(Number.isFinite(v))return v;}
+ const first=Date.parse(t.first_seen_at??"");if(Number.isFinite(first))return first;
+ const updated=Date.parse(t.updated_at??"");return Number.isFinite(updated)?updated:0;
+}
 async function run(limit:number,rpcUrl?:string,backfillLimit=8){
  const {data:run,error:re}=await db.from("mc_ingestion_runs").insert({run_type:"monitor",status:"running",source_provider:"dexscreener+jupiter+solana-rpc"}).select("id").single();if(re)throw re;
- const {data:tokens,error:te}=await db.from("mc_tokens").select("mint,name,symbol,classification,primary_pair_address,last_activity_at,updated_at,discovery_sources,visibility,source_provenance").order("updated_at",{ascending:true}).limit(Math.max(1,Math.min(limit,100)));if(te)throw te;
+ const {data:tokenRows,error:te}=await db.from("mc_tokens").select("mint,name,symbol,classification,primary_pair_address,last_activity_at,updated_at,first_seen_at,discovery_sources,visibility,source_provenance").order("updated_at",{ascending:true}).limit(1000);if(te)throw te;
+ const cutoff=new Date(Date.now()-7*86400000).toISOString();
+ const {data:recentlyAssessed,error:ae}=await db.from("mc_abandonment_assessments").select("mint,assessed_at").gte("assessed_at",cutoff).limit(5000);if(ae)throw ae;
+ const recentlyMonitored=new Set((recentlyAssessed??[]).map((x:any)=>x.mint));
+ let eligibleTokens=(tokenRows??[]).filter((x:any)=>!recentlyMonitored.has(x.mint));
+ if(!eligibleTokens.length)eligibleTokens=tokenRows??[];
+ eligibleTokens.sort((a:any,b:any)=>launchPriorityMs(a)-launchPriorityMs(b)||Date.parse(a.updated_at??"")-Date.parse(b.updated_at??""));
+ const tokens=eligibleTokens.slice(0,Math.max(1,Math.min(limit,100)));
  let checked=0,snapshots=0,backfilled=0,changed=0,errors=0,candleCalls=0,onchainSampled=0,onchainAttempts=0,onchainErrors=0,autoPublishedCount=0;const problems:string[]=[];const onchainEvidence=new Map<string,any>();const jupiterByMint=new Map<string,any>();
  try{const qs=(tokens??[]).map((x:any)=>x.mint).filter(Boolean).join(",");if(qs){const payload:any=await get("https://api.jup.ag/tokens/v2/search?query="+encodeURIComponent(qs));const rows:any[]=Array.isArray(payload)?payload:(payload.data??payload.tokens??[]);for(const row of rows){const mint=row.id??row.address??row.mint;if(mint)jupiterByMint.set(String(mint),row);}}}catch(e){problems.push("Jupiter enrichment: "+String(e).slice(0,160));}
  for(const t of tokens??[]){try{
