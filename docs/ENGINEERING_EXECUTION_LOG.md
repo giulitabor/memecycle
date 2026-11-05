@@ -208,3 +208,9 @@ Started: 2026-11-05 (Europe/Rome)
 - On-chain evidence, revival assessments/cases, research jobs, project identities and audit events deny direct anon/authenticated client access.
 - Abandonment assessments and reclamation cases are admin-readable; reclamation review updates are admin-only.
 - This confirms the discovery and revival evidence remains private until a human admin deliberately publishes an eligible token. No RLS policy was loosened.
+
+
+### Provider configuration sanity check — 2026-11-05
+- Verified the production Bitquery token is present, non-empty and not a placeholder (token value intentionally not recorded).
+- Verified the production Helius RPC setting is an HTTPS URL on `mainnet.helius-rpc.com` with an API-key query parameter (credential intentionally not recorded).
+- These checks establish configuration shape only; successful provider authentication and historical archive entitlement must be confirmed by the scheduled worker response.
