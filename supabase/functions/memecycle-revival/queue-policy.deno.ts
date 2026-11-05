@@ -28,9 +28,9 @@ Deno.test("fresh assessments are held until the 90-day cooldown expires", () => 
 
 Deno.test("partial jobs are retried only after the six-hour backoff", () => {
   const token = { mint: mintA };
-  const job = { mint: mintA, status: "partial", attempts: 1, max_attempts: 3, updated_at: "2026-11-05T08:00:00Z" };
+  const job = { mint: mintA, status: "partial", attempts: 1, max_attempts: 3, updated_at: "2026-11-05T05:00:00Z" };
   assertEquals(selectRevivalBatch({ nowMs: now, limit: 3, tokens: [token], assessments: [], jobs: [job] }).batch.length, 1);
-  assertEquals(selectRevivalBatch({ nowMs: Date.parse("2026-11-05T13:00:00Z"), limit: 3, tokens: [token], assessments: [], jobs: [job] }).batch.length, 0);
+  assertEquals(selectRevivalBatch({ nowMs: Date.parse("2026-11-05T07:00:00Z"), limit: 3, tokens: [token], assessments: [], jobs: [job] }).batch.length, 0);
 });
 
 Deno.test("jobs at their attempt limit are not retried", () => {
