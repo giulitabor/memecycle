@@ -156,3 +156,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Vercel runtime-log inspection for the 24-hour window is unavailable on the current Hobby retention tier. This is an observability limitation, not evidence that no requests occurred.
 - No secrets were read, copied or exposed. No production data was mutated and no manual worker invocation was attempted.
 - Next gate: inspect the 6 November scheduled executions (discovery 07:00 UTC, monitor 08:00 UTC, revival 10:00 UTC). Confirm a persisted `monitor` and `revival_intelligence` run, successful job/evidence/assessment writes, and source/RPC error details before calling the recovery pipeline operational. If either invocation is still absent, use an authenticated admin/cron execution path after operator authentication; do not bypass CRON_SECRET or service-role checks.
+
+
+### Revival pipeline root-cause fix and publication gate — 2026-11-05
+- Confirmed the deployed revival worker attempted to insert `run_type='revival_intelligence'`, while the production `mc_ingestion_runs_run_type_check` constraint did not allow that value. The worker therefore failed before token selection or RPC work.
+- Applied Supabase migration `20261105193834_allow_revival_intelligence_ingestion_runs`; read-back confirms the check constraint now includes `revival_intelligence`.
+- Hardened revival queue fairness: assessments use a 90-day cooldown so the first three tokens cannot starve the rest of the archive; failed/partial jobs receive a six-hour retry backoff and at most three attempts; stale running jobs can be reclaimed after 20 minutes; successful and cancelled jobs are not repeated.
+- Removed automatic public publication from the monitor. Strong market inactivity evidence may create a private human-review candidate, but the worker now always leaves publication eligibility false and never changes token visibility. Relaunch, outreach, wallet actions and public archive publication remain separately gated.
+- Code changes are on branch `agent/memecycle-live-verification-20261105`; production worker redeployment and first end-to-end execution remain pending preview/build verification and a successful authenticated invocation.
