@@ -7,6 +7,16 @@ export default async function handler(req, res) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const rpcUrl = process.env.HELIUS_RPC;
+  console.log("[MEMECYCLE verify] request received", {
+    method: req.method,
+    authorization_present: Boolean(req.headers.authorization),
+    user_agent: req.headers["user-agent"] || null,
+    cron_secret_present: Boolean(secret),
+    service_role_key_present: Boolean(serviceRoleKey),
+    supabase_url_present: Boolean(supabaseUrl),
+    helius_rpc_present: Boolean(rpcUrl),
+    bitquery_token_present: Boolean(process.env.BITQUERY_TOKEN)
+  });
   if (!secret || !serviceRoleKey || !supabaseUrl || !rpcUrl) {
     return res.status(503).json({
       error: "Pipeline verification is not configured.",
