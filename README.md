@@ -43,6 +43,7 @@ The scheduled server-side discovery, monitor and archive-sampling runners requir
 - Reference-first archive pointers in revival dossiers: canonical Solana Explorer, DexScreener, launch-signature and exact-mint Hugging Face Dataset Viewer lookup links; no bulk dataset or media copies.
 - Reference-first archive graph in `mc_archive_references`, with canonical addresses, external row locators, dataset revisions, SHA-256 fingerprints, attribution, licence and retrieval status. The source rows and media are not bulk-copied.
 - Evidence-weighted reuse-value assessments in `mc_value_assessments`, separating historical, research, cultural, technical, recovery and community potential from legal rights, authority and consent.
+- The administrator-triggered AI research dossier now consumes archive references and value assessments, and returns second-use/recovery hypotheses with explicit rights, authority and consent gates.
 - Authenticated wallet-specific rent scanner: verifies a one-time Ed25519 message signature, scans the user's SPL Token and Token-2022 accounts, and stores private candidates. It never builds or sends transactions.
 - Public archive search, filters and public-only token detail.
 - Community reclamation submissions and RLS-enforced authenticated moderation.
