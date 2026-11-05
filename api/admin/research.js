@@ -271,7 +271,10 @@ export default async function handler(req, res) {
   add("assessment",assessmentResult.data); add("community_case",caseResult.data);
   add("onchain_evidence",onchainEvidenceResult.data); add("revival_assessment",revivalAssessmentResult.data);
   evidenceManifest.project_identity=identityResult.data??null;
-  add("revival_case",revivalCaseResult.data);\n  add("archive_reference",archiveReferenceResult.data);\n  add("archive_transaction_reference",archiveTransactionReferenceResult.data);\n  add("value_assessment",valueAssessmentResult.data);
+  add("revival_case",revivalCaseResult.data);
+  add("archive_reference",archiveReferenceResult.data);
+  add("archive_transaction_reference",archiveTransactionReferenceResult.data);
+  add("value_assessment",valueAssessmentResult.data);
   const revivalCaseIds=safeArray(revivalCaseResult.data).map(row=>row.id).filter(Boolean);
   if(revivalCaseIds.length){
     const {data:caseEvents,error:caseEventsError}=await db.from("mc_revival_case_events").select("case_id,event_type,actor,details,created_at").in("case_id",revivalCaseIds).order("created_at",{ascending:false}).limit(40);
