@@ -104,3 +104,8 @@ Started: 2026-11-05 (Europe/Rome)
 - Verify the corrected monitor cron produces a persisted `run_type='monitor'` row.
 - Verify admin sign-in with an actual admin-role account and test research/case workflow end to end.
 - Re-run Supabase security advisors. Leaked-password protection remains a dashboard-level auth configuration item; RLS-only internal tables intentionally have no client policies.
+
+### Security follow-up — explicit internal-table deny policies
+- Added and applied migration `internal_table_deny_policies` for AI research reports, audit events, on-chain evidence, project identities, research jobs, revival assessments, revival cases and case events.
+- Policies explicitly deny all client-role operations (`anon`, `authenticated`) while preserving service-role server access.
+- Re-ran Supabase security advisors: the eight RLS-without-policy findings are cleared. The only remaining security warning is Supabase Auth leaked-password protection disabled; no supported in-chat auth-configuration action is available, so this remains a dashboard configuration task.
