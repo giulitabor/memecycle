@@ -30,3 +30,11 @@ export function hasExplicitConsentEvidence(evidence, authorityStatus) {
 export function hasAuthorityAndConsent(identity) {
   return identity?.authority_status === "independently_verified" && identity?.consent_status === "granted";
 }
+
+export function canAttestAuthority(authorityStatus, evidence, humanConfirmed) {
+  return authorityStatus !== "independently_verified" || (humanConfirmed === true && hasIndependentAuthorityEvidence(evidence));
+}
+
+export function canAttestConsent(consentStatus, authorityStatus, evidence, humanConfirmed) {
+  return consentStatus !== "granted" || (humanConfirmed === true && hasExplicitConsentEvidence(evidence, authorityStatus));
+}
