@@ -352,3 +352,20 @@ Started: 2026-11-05 (Europe/Rome)
 - Updated README and source-review documents with actual pilot results, limitations and privacy/safety rules.
 - Applied Supabase migrations for reference, value-assessment and wallet scan tables. The HTTP extension was enabled in the `extensions` schema for the controlled source pilot.
 - Added tests for value scoring, wallet-account eligibility, rent authority rules and reference links. Hosted CI and production deployments are the remaining release gates for this branch.
+
+
+### 2026-11-05 — Five-milestone release deployed
+
+- PR #7 merged to `main` as commit `65101f5826b14e060c33d23c2baf030e10309aed`. Hosted CI passed: application test suite, Vite production build, Deno checks for worker/monitor/revival/wallet recovery, and revival queue-policy tests.
+- Supabase Edge Functions deployed and verified ACTIVE with JWT verification enabled:
+  - `memecycle-worker` v13 — stratified historical archive sampling.
+  - `memecycle-monitor` v16 — pool/no-pair evidence fixes.
+  - `memecycle-revival` v8 — pool-aware holder analysis, rent estimator, metadata availability check and evidence-based value assessment.
+  - `memecycle-wallet-recovery` v1 — signed-message, user-owned read-only wallet scanner.
+- Vercel production deployment `dpl_3RZ1fwC56kJNQUpYLzMNHmZutwAB` reached READY and is aliased to `https://memecycle.vercel.app`. The live page returned HTTP 200; the deployed JS bundle contains the Wallet Recovery UI and the admin historical-sampling control.
+- The daily historical archive sampler is scheduled for 12:00 UTC and is bounded to 400 rows/day (two 100-row pages per config across `launches_legacy` and `launches`). Its first scheduled run has not yet occurred; source cursors remain at zero. It will sample across 100 deterministic strata per config, store only selected facts and references, and keep candidates private/unverified.
+- Verified the wallet recovery function rejects unauthenticated requests with HTTP 401. The wallet scanner requires a signed-in MEMECYCLE account plus a fresh wallet message signature. No user's wallet was scanned without that signature.
+- Verified the worker endpoint also rejects unauthenticated requests with HTTP 401. Vercel environment variable names required by the scheduled runner (`CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`) are present; secret values were not retrieved or exposed.
+- Verified the pilot token remains `private` and `unverified`; the dataset creator candidate matches the on-chain launch transaction fee payer. The sample's value assessment is historical 90, research 90, cultural 20, technical 100, with recovery and community unassessed and rights unknown.
+- No user wallet transaction was built or submitted; no tokens were burned; no accounts were closed; no SOL was transferred; no paid archive access was purchased; no token was publicly relaunched.
+- Remaining runtime checks: first daily archive backfill result and a user-initiated wallet scan after the user signs the challenge. These require the scheduled source job and the user's own wallet signature respectively.
