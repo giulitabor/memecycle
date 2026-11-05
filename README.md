@@ -38,6 +38,8 @@ The scheduled server-side discovery and monitor runners require `SUPABASE_URL`, 
 - All discovery and monitor runs are recorded in `mc_ingestion_runs`, with errors and summaries in the audit log.
 
 ## Implemented
+- Read-only Solana rent-recovery analysis in the revival investigator: compares the mint and sampled largest token accounts against the live rent-exempt minimum, records possible excess and zero-balance close candidates, and never builds or sends transactions.
+- Reference-first archive and recovery design: retain canonical addresses, external source locators, hashes, provenance, licences and retrieval status instead of mirroring entire external datasets or media.
 - Public archive search, filters and public-only token detail.
 - Community reclamation submissions and RLS-enforced authenticated moderation.
 - Discovery ingestion, market snapshots, pool observations, provenance, classification history and data-gap tracking.

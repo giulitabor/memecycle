@@ -272,3 +272,15 @@ Started: 2026-11-05 (Europe/Rome)
 - Database totals after the scheduled smoke test: 180 tokens, 177 snapshots, 1 revival assessment, 7 on-chain evidence records, 1 successful on-chain research job, 0 recovery cases, 0 project identities, and 0 abandonment assessments.
 - Persisted discovery window: oldest `first_seen_at` 2026-11-02 16:21:52 UTC; newest 2026-11-05 21:18:33 UTC. The archive is not yet old enough to represent dormant projects.
 - The no-pair monitor fix and pool-aware holder calculation remain in PR #4 only; production Edge Functions have not been changed.
+
+
+### 2026-11-05 — Production fix deployment and reference-first recovery lane
+- Deployed the already-reviewed PR #4 Supabase Edge Function changes separately from Vercel: `memecycle-monitor` v16 ACTIVE and `memecycle-revival` v5 ACTIVE; both retain JWT verification.
+- Verified the live monitor bundle imports `no-pair-assessment.js` and the live revival bundle imports `holder-distribution.js` and `queue-policy.ts`. The no-pair assessment helper and pool-exclusion helper are therefore present in the active production bundles.
+- Added a reference-first archive design: MEMECYCLE stores canonical on-chain identifiers, external dataset row locators, metadata/content URIs, source revisions, content hashes, rights/licence provenance and retrieval status; it does not bulk-copy whole ledgers or media by default.
+- Added a read-only rent-recovery estimator to the revival investigator. It reads lamports and data sizes for the mint and the already-sampled largest token accounts, asks Solana RPC for the current rent-exempt minimum for each observed size, and records potential excess and zero-token-balance close candidates as evidence.
+- Rent estimates are explicitly non-authoritative: no signer verification, transaction construction, token burning, account closure or SOL transfer. A potential excess withdrawal still depends on the owning Token Program supporting the instruction and the correct authority signing. The sample is not wallet-wide or exhaustive.
+- Added three unit tests for rent-floor arithmetic, zero-balance close eligibility separation, and missing rent data. Local Node test result: 3/3 passed.
+- The reference-first design and rent estimator are on branch `agent/memecycle-reference-first-rent-recovery-20261105`; not yet merged or deployed. Historical archive source ingestion and an end-to-end production smoke test remain outstanding.
+
+- CI follow-up: the first hosted run correctly caught two fixture strings containing numeric separators and Deno's inferred `never[]` type for the optional JavaScript sample. Fixtures now use raw integer strings, the helper has JSDoc input types, and the bounded sample is explicitly typed at the TypeScript call site. The next hosted run is the release gate; no new estimator code has been deployed.
