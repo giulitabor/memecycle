@@ -129,7 +129,7 @@ async function backfillHuggingFace(pagesPerConfig:number){
  for(const config of configs){
   const sourceKey="hf_pumpfun_"+config,src:any=sourceMap.get(sourceKey),total=totals.get(config)??0;
   if(!src||src.enabled===false||total<=0)continue;
-  let cursor=Math.max(0,Number(src.cursor_value)||0);
+  let cursor=Math.max(0,Number(src.cursor_value)||0),sourceRowsSeen=Number(src.records_seen)||0;
   for(let page=0;page<pagesPerConfig&&cursor<100;page++){
    const pageIndex=cursor,offset=Math.floor(pageIndex*total/100),url=new URL("https://datasets-server.huggingface.co/rows");
    url.searchParams.set("dataset",dataset);url.searchParams.set("config",config);url.searchParams.set("split","train");url.searchParams.set("offset",String(offset));url.searchParams.set("length","100");
