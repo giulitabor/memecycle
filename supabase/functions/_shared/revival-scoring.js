@@ -13,13 +13,13 @@ export function scoreRevival(input = {}) {
   const dormancyScore = dormancyParts.length ? Math.min(100, dormancyParts.reduce((a,b)=>a+b,0)) : null;
 
   const viabilityParts = [];
-  if (typeof input.mintAuthorityActive === "boolean") viabilityParts.push(input.mintAuthorityActive ? 0 : 20);
-  if (typeof input.freezeAuthorityActive === "boolean") viabilityParts.push(input.freezeAuthorityActive ? 0 : 20);
-  if (Number.isFinite(input.top20SupplyPct)) viabilityParts.push(input.top20SupplyPct <= 30 ? 20 : input.top20SupplyPct <= 50 ? 12 : input.top20SupplyPct <= 70 ? 5 : 0);
-  if (typeof input.jupiterSuspicious === "boolean") viabilityParts.push(input.jupiterSuspicious ? 0 : 20);
-  if (Number.isFinite(input.liquidityUsd)) viabilityParts.push(input.liquidityUsd >= 1000 ? 10 : 0);
-  if (Number.isFinite(input.jupiterOrganicScore)) viabilityParts.push(input.jupiterOrganicScore >= 60 ? 10 : input.jupiterOrganicScore >= 30 ? 7 : input.jupiterOrganicScore >= 10 ? 3 : 0);
-  const viabilityScore = viabilityParts.length ? Math.round(viabilityParts.reduce((a,b)=>a+b,0) / viabilityParts.reduce((a,b)=>a+1,0) * 6) : null;
+  if (typeof input.mintAuthorityActive === "boolean") viabilityParts.push({ score: input.mintAuthorityActive ? 0 : 20, max: 20 });
+  if (typeof input.freezeAuthorityActive === "boolean") viabilityParts.push({ score: input.freezeAuthorityActive ? 0 : 20, max: 20 });
+  if (Number.isFinite(input.top20SupplyPct)) viabilityParts.push({ score: input.top20SupplyPct <= 30 ? 20 : input.top20SupplyPct <= 50 ? 12 : input.top20SupplyPct <= 70 ? 5 : 0, max: 20 });
+  if (typeof input.jupiterSuspicious === "boolean") viabilityParts.push({ score: input.jupiterSuspicious ? 0 : 20, max: 20 });
+  if (Number.isFinite(input.liquidityUsd)) viabilityParts.push({ score: input.liquidityUsd >= 1000 ? 10 : 0, max: 10 });
+  if (Number.isFinite(input.jupiterOrganicScore)) viabilityParts.push({ score: input.jupiterOrganicScore >= 60 ? 10 : input.jupiterOrganicScore >= 30 ? 7 : input.jupiterOrganicScore >= 10 ? 3 : 0, max: 10 });
+  const viabilityScore = viabilityParts.length ? Math.round(viabilityParts.reduce((a,b)=>a+b.score,0) / viabilityParts.reduce((a,b)=>a+b.max,0) * 100) : null;
 
   let communityScore = null;
   const communityParts = [];
