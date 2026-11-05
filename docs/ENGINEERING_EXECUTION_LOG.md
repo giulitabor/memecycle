@@ -193,3 +193,10 @@ Started: 2026-11-05 (Europe/Rome)
 - Added a seventh Deno regression test proving that actual historical launch time outranks recent ingestion time.
 - Latest verified CI run: 12 application tests passed, 7 Deno queue tests passed, Edge Function type checks passed, production build passed, npm audit reported zero vulnerabilities.
 - Supabase Edge Functions are active at worker v12, monitor v14 and revival v4.
+
+
+### Monitoring fairness and final pre-run checks — 2026-11-05
+- Monitor worker v15 now fetches a bounded archive batch, excludes tokens monitored in the preceding seven days when alternatives exist, and orders eligible tokens by actual launch provenance (Bitquery/PumpData) before platform first-seen time. This gives newly backfilled historic launches a fair path to market-pair enrichment without repeatedly selecting the same oldest token.
+- CI now type-checks all three Supabase workers (discovery, monitor, revival); the latest run passed. The seven Deno queue tests and application tests/build also passed.
+- The one-time production pipeline verification schedule was narrowed to 20:30 UTC on 5 November 2026 only. It will run discovery, then monitor one historical-priority candidate, then investigate one candidate; the temporary route must be removed after verification.
+- Current worker versions: discovery v12, monitor v15, revival v4. End-to-end production execution remains unconfirmed until the corresponding ingestion runs, on-chain evidence and revival assessment are read back from Supabase.
