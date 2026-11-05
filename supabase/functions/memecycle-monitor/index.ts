@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-const URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const db=createClient(URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-monitor-0.2.0";
+const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const db=createClient(SUPABASE_URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-monitor-0.2.0";
 const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const num=(v:unknown):number|null=>v==null||v===""||!Number.isFinite(Number(v))?null:Number(v);
 const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
