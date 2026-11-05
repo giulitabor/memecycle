@@ -47,3 +47,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Read current discovery/monitor/community functions, cron routes, database state, migrations list, Vercel environment-variable names, and Supabase security/performance advisors.
 - No production code or database changes made during baseline audit.
 - Next: fix monitor cron route, add tests and stage-by-stage implementation.
+
+### Stage 1 — Monitor scheduler repair (implemented on working branch)
+- Confirmed the production Vercel cron configuration schedules discovery at 07:00 UTC and monitoring at 08:00 UTC.
+- Confirmed Vercel has production environment-variable entries for CRON_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and HELIUS_RPC; secret values were not read or copied into this log.
+- Confirmed discovery cron has executed daily, but there are zero monitor ingestion runs. This isolates the missing monitoring activity to the monitor path rather than the entire cron system.
+- Reworked `api/cron/monitor.js` to validate the configured Supabase URL, construct the function endpoint from URL.origin (avoiding the malformed trailing-slash regular expression), preserve bearer authentication, return worker JSON and attach non-secret trigger metadata.
+- Tests still required: route syntax/build, authorised/unauthorised invocation, successful Supabase monitor execution, and evidence of a persisted monitor run.
+- Safety note: monitor currently samples at most three latest signatures on pool accounts per run; this is not full token-holder transaction history. No abandonment claim may be inferred from this limited sample.
