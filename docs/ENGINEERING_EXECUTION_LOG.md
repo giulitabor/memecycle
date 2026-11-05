@@ -144,3 +144,31 @@ Started: 2026-11-05 (Europe/Rome)
 - Vercel runtime error scan (last 10 minutes) returned no runtime error clusters.
 - The admin UI now requires separate explicit confirmations when recording independently verified authority and granted consent. Changing evidence for an existing verification requires renewed human review; leaving evidence fields blank preserves the previously saved evidence.
 - Current test suite: 12/12 pass (6 revival scoring, 6 recovery governance). Vercel build READY. Admin authentication and full browser workflow remain untested because no administrator session was available to the engineering run.
+
+
+### Live production verification — 2026-11-05 (Europe/Rome)
+- Read-only production verification performed against Supabase project `asyswmxkdpidaghrdffa` and Vercel project `memecycle`.
+- Supabase project is `ACTIVE_HEALTHY`; Edge Functions are ACTIVE: `memecycle-worker` v11, `memecycle-monitor` v12, `memecycle-community` v1, and `memecycle-revival` v2.
+- Production discovery completed at 07:59:43 UTC and finished at 08:00:19 UTC: 124 candidates seen, 30 selected/upserted, 30 snapshots, 30 classifications, zero errors. Sources included DexScreener, GeckoTerminal, Pump.fun launch history and Jupiter.
+- Database read-back: 150 tokens, 149 snapshots, zero revival assessments, zero on-chain evidence rows, zero research jobs, zero recovery cases, zero project identities, and zero abandonment assessments.
+- No `monitor` or `revival_intelligence` ingestion run is recorded for 2026-11-05. Supabase function logs in the last 24 hours show the discovery worker invocation but no monitor or revival invocation.
+- Latest Vercel production deployment `dpl_auzHZebmDfTntjDvdpkQaj3xczk2` is READY on `main`; Vercel runtime error aggregation for the last 24 hours reports no runtime errors.
+- Vercel runtime-log inspection for the 24-hour window is unavailable on the current Hobby retention tier. This is an observability limitation, not evidence that no requests occurred.
+- No secrets were read, copied or exposed. No production data was mutated and no manual worker invocation was attempted.
+- Next gate: inspect the 6 November scheduled executions (discovery 07:00 UTC, monitor 08:00 UTC, revival 10:00 UTC). Confirm a persisted `monitor` and `revival_intelligence` run, successful job/evidence/assessment writes, and source/RPC error details before calling the recovery pipeline operational. If either invocation is still absent, use an authenticated admin/cron execution path after operator authentication; do not bypass CRON_SECRET or service-role checks.
+
+
+### Revival pipeline root-cause fix and publication gate — 2026-11-05
+- Confirmed the deployed revival worker attempted to insert `run_type='revival_intelligence'`, while the production `mc_ingestion_runs_run_type_check` constraint did not allow that value. The worker therefore failed before token selection or RPC work.
+- Applied Supabase migration `20261105193834_allow_revival_intelligence_ingestion_runs`; read-back confirms the check constraint now includes `revival_intelligence`.
+- Hardened revival queue fairness: assessments use a 90-day cooldown so the first three tokens cannot starve the rest of the archive; failed/partial jobs receive a six-hour retry backoff and at most three attempts; stale running jobs can be reclaimed after 20 minutes; successful and cancelled jobs are not repeated.
+- Removed automatic public publication from the monitor. Strong market inactivity evidence may create a private human-review candidate, but the worker now always leaves publication eligibility false and never changes token visibility. Relaunch, outreach, wallet actions and public archive publication remain separately gated.
+- Code changes are on branch `agent/memecycle-live-verification-20261105`; production worker redeployment and first end-to-end execution remain pending preview/build verification and a successful authenticated invocation.
+
+
+### Queue-policy regression coverage and CI — 2026-11-05
+- Extracted revival candidate selection and retry policy into `supabase/functions/memecycle-revival/queue-policy.ts`.
+- Added Deno tests for unassessed-first fairness, 90-day assessment cooldown, six-hour retry backoff, max-attempt enforcement, stale-lock recovery, and reassessment after cooldown.
+- Added GitHub Actions workflow to run the existing Node test suite, Vite production build, Deno type checks for both Edge Functions, and the queue-policy tests.
+- A Vercel preview build of the preceding source commit completed successfully; it did not include the final queue-policy test/workflow commit. A fresh preview build is required for the latest branch head.
+- CI workflow run status has not yet been returned by the GitHub connector; do not treat tests as passed until a completed run is observed.

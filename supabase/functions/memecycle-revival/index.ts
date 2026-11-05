@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreRevival } from "./scoring.js";
+import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -212,18 +213,25 @@ async function run(limit: number, suppliedRpc: string | null) {
     .select("mint,name,symbol,primary_pair_address,liquidity_usd,volume_24h_usd,holder_count,source_provenance,first_seen_at")
     .order("first_seen_at", { ascending: true }).limit(500);
   if (tokenError) throw tokenError;
-  const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
-  const { data: recent, error: recentError } = await db.from("mc_revival_assessments")
-    .select("mint").gte("assessed_at", cutoff).order("assessed_at", { ascending: false }).limit(1000);
-  if (recentError) throw recentError;
-  const done = new Set((recent || []).map((row: any) => row.mint));
-  const batch = (tokens || []).filter((row: any) => validMint(row.mint) && !done.has(row.mint)).slice(0, Math.max(1, Math.min(limit, 3)));
+  const [{ data: assessments, error: assessmentReadError }, { data: jobs, error: jobReadError }] = await Promise.all([
+    db.from("mc_revival_assessments").select("mint,assessed_at").order("assessed_at", { ascending: false }).limit(5000),
+    db.from("mc_research_jobs").select("mint,status,attempts,max_attempts,updated_at,locked_at,available_at")
+      .eq("job_type", "onchain_investigation").order("updated_at", { ascending: false }).limit(5000)
+  ]);
+  if (assessmentReadError) throw assessmentReadError;
+  if (jobReadError) throw jobReadError;
+
+  const { batch, latestJobByMint } = selectRevivalBatch({
+    tokens: tokens || [], assessments: assessments || [], jobs: jobs || [], nowMs: Date.now(), limit
+  });
   const results: any[] = [];
   const errors: any[] = [];
   for (const token of batch) {
+    const priorJob = latestJobByMint.get(token.mint);
+    const attemptNumber = nextAttemptNumber(priorJob);
     const { data: job, error: jobError } = await db.from("mc_research_jobs").insert({
       mint: token.mint, job_type: "onchain_investigation", status: "running", priority: 60,
-      attempts: 1, max_attempts: 3, locked_at: new Date().toISOString(), locked_by: VERSION
+      attempts: attemptNumber, max_attempts: 3, locked_at: new Date().toISOString(), locked_by: VERSION
     }).select("id").single();
     if (jobError) { errors.push({ mint: token.mint, error: jobError.message }); continue; }
     try {
@@ -238,7 +246,12 @@ async function run(limit: number, suppliedRpc: string | null) {
     }
   }
   const status = errors.length ? (results.length ? "partial" : "failed") : "succeeded";
-  const summary = { worker_version: VERSION, selected: batch.length, completed: results.length, errors: errors.length, rpc_calls_budget: "maximum 3 tokens per run; per-token calls are bounded", no_publication: true, no_outreach: true, no_wallet_actions: true };
+  const summary = {
+    worker_version: VERSION, selected: batch.length, completed: results.length, errors: errors.length,
+    rpc_calls_budget: "maximum 3 tokens per run; per-token calls are bounded",
+    assessment_cooldown_days: 90, retry_backoff_hours: 6, maximum_attempts_per_token: 3,
+    no_publication: true, no_outreach: true, no_wallet_actions: true
+  };
   await db.from("mc_ingestion_runs").update({
     status, candidates_seen: tokens?.length ?? 0, tokens_upserted: results.length,
     snapshots_inserted: 0, classifications_written: results.length, error_count: errors.length,
