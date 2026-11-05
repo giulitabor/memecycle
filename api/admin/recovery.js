@@ -101,7 +101,7 @@ export default async function handler(req,res){
    const consent=consentStatus||current?.consent_status||"not_requested";
    if(authority==="independently_verified"){
     const authorityEvidence=evidence.filter(x=>["authority","project_control","official_announcement","legal_or_governance"].includes(x.type));
-    if(authorityEvidence.length<2)return json(res,400,{error:"Independent authority status requires at least two distinct HTTPS evidence sources recorded for human review."});
+    if(new Set(authorityEvidence.map(x=>x.url)).size<2)return json(res,400,{error:"Independent authority status requires at least two distinct HTTPS evidence sources recorded for human review."});
    }
    if(consent==="granted"){
     const consentEvidence=evidence.filter(x=>x.type==="explicit_project_consent");
