@@ -239,3 +239,12 @@ Started: 2026-11-05 (Europe/Rome)
 - Reviewed its known issues: single-recorder coverage gaps, pre-2026-09-27 decoder undercount, non-random early-feature sampling, and a `rugged` label that is a dataset rule rather than proof of fraud or abandonment.
 - Reviewed Hugging Face Dataset Viewer documentation for bounded `/filter` requests (100 rows max) and pagination.
 - Source review is documented in `docs/HISTORICAL_ARCHIVE_SOURCE_REVIEW.md`. The dataset is not integrated yet: endpoint access, `partial=false`, pagination and sample chain verification must pass first.
+
+
+### Monitor queue starvation correction — 2026-11-05
+- Found a no-pair branch in monitor v0.3.0 that wrote a market-pair data gap and then continued without inserting an `mc_abandonment_assessments` row.
+- The monitor queue excludes recently assessed mints to progress through the archive. Without an assessment row, a no-pair mint remained eligible and could be selected repeatedly, starving later tokens.
+- Added a no-pair assessment builder and monitor v0.4.0. It writes an explicit `insufficient_evidence` assessment with null market fields, zero coverage, no risk flags, and publication/auto-publication disabled. It records only the observed DexScreener no-pair response; it does not fabricate pool, holder, or chain activity.
+- The monitor now fails the per-token run if this assessment insert fails, rather than silently skipping the queue checkpoint.
+- Added two Node regression tests. The combined seven-test holder/no-pair suite passed with Node's built-in test runner.
+- This change has not been deployed to production; the existing deployed monitor remains v0.3.0 until reviewed, merged and deployed.
