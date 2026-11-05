@@ -200,3 +200,11 @@ Started: 2026-11-05 (Europe/Rome)
 - CI now type-checks all three Supabase workers (discovery, monitor, revival); the latest run passed. The seven Deno queue tests and application tests/build also passed.
 - The one-time production pipeline verification schedule was narrowed to 20:30 UTC on 5 November 2026 only. It will run discovery, then monitor one historical-priority candidate, then investigate one candidate; the temporary route must be removed after verification.
 - Current worker versions: discovery v12, monitor v15, revival v4. End-to-end production execution remains unconfirmed until the corresponding ingestion runs, on-chain evidence and revival assessment are read back from Supabase.
+
+
+### Privacy and row-level security verification — 2026-11-05
+- Confirmed RLS is enabled on every `mc_*` table.
+- Public token reads are restricted to rows with `visibility='public'`; admins are separately authorised through `app_metadata.role='admin'`.
+- On-chain evidence, revival assessments/cases, research jobs, project identities and audit events deny direct anon/authenticated client access.
+- Abandonment assessments and reclamation cases are admin-readable; reclamation review updates are admin-only.
+- This confirms the discovery and revival evidence remains private until a human admin deliberately publishes an eligible token. No RLS policy was loosened.
