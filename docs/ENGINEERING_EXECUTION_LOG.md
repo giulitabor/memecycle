@@ -172,3 +172,16 @@ Started: 2026-11-05 (Europe/Rome)
 - Added GitHub Actions workflow to run the existing Node test suite, Vite production build, Deno type checks for both Edge Functions, and the queue-policy tests.
 - A Vercel preview build of the preceding source commit completed successfully; it did not include the final queue-policy test/workflow commit. A fresh preview build is required for the latest branch head.
 - CI workflow run status has not yet been returned by the GitHub connector; do not treat tests as passed until a completed run is observed.
+
+
+### Production deployment and end-to-end verification status — 2026-11-05
+- Merged PR #3 to `main` after GitHub Actions passed: 12/12 Node tests, 6/6 Deno queue-policy tests, Deno type checks for monitor and revival, Vite production build, and npm audit with zero reported vulnerabilities.
+- Updated direct dependency pins: Vite 6.4.5 and `@vercel/oidc` 4.0.6.
+- Applied and verified the production constraint migration allowing `mc_ingestion_runs.run_type='revival_intelligence'`.
+- Deployed Supabase Edge Functions: `memecycle-worker` v11 (historical Bitquery source included), `memecycle-monitor` v14 (private-only human-review candidates; allowed event confidence values), and `memecycle-revival` v3 (fair queue, 90-day reassessment cooldown, six-hour retry backoff, three attempts, stale-lock recovery).
+- Removed automatic public archive publication from the monitor. The worker cannot change token visibility; publication, outreach and wallet actions remain disabled.
+- Confirmed production Vercel deployments are READY. The latest deployment includes a temporary, CRON_SECRET-protected sequential verification route with stage-level logs and a 300-second function limit.
+- Archive coverage remains insufficient for a real abandoned-project claim: 150 tokens are present, and none had been first-seen more than 30 days ago at the latest read. The Bitquery archive integration and production token are configured in source/environment, but a successful historical backfill has not yet been recorded.
+- The one-time pipeline verification cron is scheduled for 20:00 UTC on 2026-11-05. At the latest database/log check, no discovery, monitor or revival run had yet been recorded for that window. Vercel Hobby cron timing is hourly (the invocation may occur any time from 20:00 through 20:59 UTC); do not mark end-to-end verification complete until database rows and worker logs confirm all stages.
+- Supabase security advisor currently reports one warning: leaked-password protection is disabled. No auth policy was changed as part of this milestone.
+- No production token was made public, no outreach was sent, and no wallet action or relaunch was performed.
