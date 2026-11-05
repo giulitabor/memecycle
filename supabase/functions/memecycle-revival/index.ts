@@ -3,11 +3,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreRevival } from "./scoring.js";
 import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
 import { aggregateNonPoolHolders } from "./holder-distribution.js";
+import { assessRentRecovery } from "./rent-recovery.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } });
-const VERSION = "memecycle-revival-0.2.0";
+const VERSION = "memecycle-revival-0.3.0";
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json", "cache-control": "no-store" }
 });
@@ -77,16 +78,38 @@ async function investigateToken(token: any, endpoint: string) {
   const supply = asNumber(supplyRaw);
   const topAccounts = largest?.value ?? [];
   let owners: any[] = [];
+  let accountRows: any[] = [];
   if (topAccounts.length) {
     const accountInfo = await rpc(endpoint, "getMultipleAccounts", [
       topAccounts.map((row: any) => row.address), { encoding: "jsonParsed", commitment: "confirmed" }
     ]);
-    owners = (accountInfo?.value ?? []).map((item: any, i: number) => ({
-      account: topAccounts[i]?.address,
-      owner: item?.data?.parsed?.info?.owner ?? null,
-      amount: String(item?.data?.parsed?.info?.tokenAmount?.amount ?? topAccounts[i]?.amount ?? "0")
+    accountRows = (accountInfo?.value ?? []).map((account: any, i: number) => ({
+      address: topAccounts[i]?.address,
+      account
+    }));
+    owners = accountRows.map(({ address, account }) => ({
+      account: address,
+      owner: account?.data?.parsed?.info?.owner ?? null,
+      amount: String(account?.data?.parsed?.info?.tokenAmount?.amount ?? "0")
     }));
   }
+  // Compare observed lamports with the cluster's current rent floor. The RPC
+  // sample is intentionally bounded to the mint and largest token accounts.
+  const rentSizes = [...new Set([
+    mintAccount?.value?.space,
+    ...accountRows.map((row: any) => row.account?.space)
+  ].map(Number).filter((space) => Number.isSafeInteger(space) && space >= 0))];
+  const rentPairs = await Promise.all(rentSizes.map(async (space) => [
+    String(space),
+    String(await rpc(endpoint, "getMinimumBalanceForRentExemption", [space]))
+  ]));
+  const rentMinimumBySpace = Object.fromEntries(rentPairs);
+  const rentRecovery = assessRentRecovery({
+    mintAddress: mint,
+    mintAccount,
+    tokenAccounts: accountRows,
+    rentMinimumBySpace
+  });
   // Exclude the known primary DEX pool address from beneficial-holder concentration.
   // A pool's token reserve is market liquidity, not proof of a single person's ownership.
   const holderDistribution = aggregateNonPoolHolders(
@@ -134,6 +157,9 @@ async function investigateToken(token: any, endpoint: string) {
       top20_supply_pct: top20SupplyPct,
       largest_non_pool_accounts: holders.slice(0,20)
     });
+  await storeEvidence(mint, "rent_recovery", source, "partial",
+    "Read-only comparison of observed mint/largest-token-account lamports with getMinimumBalanceForRentExemption at the current cluster rent parameters. This is not a wallet-wide scan, authority verification, transaction quote or promise of recoverability.",
+    rentRecovery);
   if (poolActivityAt) await storeEvidence(mint, "pool_activity", source, "partial",
     "Latest signature on the recorded primary DEX pool account only; this does not represent all token transfers, holders or community activity.", {
       pair_address: token.primary_pair_address, latest_signature_at: poolActivityAt
@@ -176,6 +202,7 @@ async function investigateToken(token: any, endpoint: string) {
     mint, observed_at: new Date().toISOString(), mint_authority: info.mintAuthority ?? null,
     freeze_authority: info.freezeAuthority ?? null, supply_raw: supplyRaw, decimals: Number(info.decimals),
     top20_supply_pct: top20SupplyPct, top20_scope: "largest non-pool token accounts grouped by parsed owner; known primary DEX pool address excluded; not a full beneficial-owner distribution",
+    rent_recovery: rentRecovery,
     excluded_primary_pool_account_count: holderDistribution.excludedPoolAccountCount,
     included_non_pool_token_account_count: holderDistribution.includedAccountCount,
     pool_activity_at: poolActivityAt, pair_age_days: pairAgeDays, pool_activity_age_days: poolActivityAgeDays,
