@@ -5,11 +5,12 @@ import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.ts";
 import { aggregateNonPoolHolders } from "./holder-distribution.js";
 import { assessRentRecovery } from "./rent-recovery.js";
 import { buildArchiveReferences } from "./archive-references.js";
+import { assessDigitalValue } from "./value-assessment.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } });
-const VERSION = "memecycle-revival-0.4.0";
+const VERSION = "memecycle-revival-0.5.0";
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json", "cache-control": "no-store" }
 });
@@ -64,6 +65,16 @@ async function storeEvidence(mint: string, type: string, source: string, confide
   });
   if (error) throw error;
 }
+async function checkMetadataUri(uri: string | null) {
+  if (!uri) return { status: "unknown", httpStatus: null, contentType: null };
+  if (!/^https?:\/\//i.test(uri)) return { status: "reference_only", httpStatus: null, contentType: null };
+  try {
+    const response = await fetch(uri, { method: "HEAD", signal: AbortSignal.timeout(4500) });
+    return { status: response.ok ? "available" : response.status === 404 ? "missing" : "error",
+      httpStatus: response.status, contentType: response.headers.get("content-type") };
+  } catch { return { status: "unknown", httpStatus: null, contentType: null }; }
+}
+
 async function investigateToken(token: any, endpoint: string) {
   const mint = token.mint;
   const [mintAccount, largest, poolPair] = await Promise.all([
@@ -156,6 +167,22 @@ async function investigateToken(token: any, endpoint: string) {
     metadataUri: pumpfunMetadataUri,
     launchSignature: mintSignatures?.[mintSignatures.length - 1]?.signature ?? null
   });
+  const metadataStatus = await checkMetadataUri(pumpfunMetadataUri);
+  if (archiveReferences.metadata_reference) archiveReferences.metadata_reference.retrieval_status = metadataStatus.status;
+  if (pumpfunMetadataUri) {
+    let metadataSource = "metadata_uri";
+    if (/^ipfs:\/\//i.test(pumpfunMetadataUri)) metadataSource = "ipfs";
+    else if (/^ar:\/\//i.test(pumpfunMetadataUri)) metadataSource = "arweave";
+    else { try { metadataSource = new URL(pumpfunMetadataUri).hostname; } catch { /* keep generic source */ } }
+    const { error: metadataRefError } = await db.from("mc_archive_references").upsert({
+      network: "solana-mainnet", subject_type: "metadata", subject_address: mint,
+      source_id: metadataSource, external_record_id: pumpfunMetadataUri, locator_url: pumpfunMetadataUri,
+      retrieval_status: metadataStatus.status, evidence_role: "locator", last_checked_at: new Date().toISOString(),
+      normalized_facts: { http_status: metadataStatus.httpStatus, content_type: metadataStatus.contentType },
+      coverage_notes: "Only metadata URI availability was checked; no metadata JSON, image or media payload was downloaded."
+    }, { onConflict: "network,subject_type,subject_address,source_id,external_record_id" });
+    if (metadataRefError) throw metadataRefError;
+  }
   await storeEvidence(mint, "supply", source, "observed", "Parsed mint account; supply is raw base units and decimals are recorded.", {
     supply_raw: supplyRaw, decimals: Number(info.decimals), initialized: Boolean(info.isInitialized), largest_account_count: topAccounts.length
   });
@@ -207,8 +234,12 @@ async function investigateToken(token: any, endpoint: string) {
   const pairAgeDays = pairCreatedAt ? Math.max(0, (Date.now() - pairCreatedAt) / 86400000) : null;
   const poolActivityAgeDays = poolActivityAt ? Math.max(0, (Date.now() - new Date(poolActivityAt).getTime()) / 86400000) : null;
   const jupiter = provenance.jupiter || {};
-  const identity = await db.from("mc_project_identities").select("identity_status,authority_status,consent_status").eq("mint", mint).maybeSingle();
+  const [identity, snapshotCount] = await Promise.all([
+    db.from("mc_project_identities").select("identity_status,authority_status,consent_status,evidence").eq("mint", mint).maybeSingle(),
+    db.from("mc_snapshots").select("id", { count: "exact", head: true }).eq("mint", mint)
+  ]);
   if (identity.error) throw identity.error;
+  if (snapshotCount.error) throw snapshotCount.error;
   const scores = scoreRevival({
     pairAgeDays, poolActivityAgeDays,
     liquidityUsd: asNumber(token.liquidity_usd), volume24hUsd: asNumber(token.volume_24h_usd),
@@ -218,6 +249,44 @@ async function investigateToken(token: any, endpoint: string) {
     holderCount: asNumber(token.holder_count), identityStatus: identity.data?.identity_status || "unverified",
     authorityStatus: identity.data?.authority_status || "unknown", consentStatus: identity.data?.consent_status || "not_requested"
   });
+  const datasetLaunch = token.source_provenance?.huggingface_launch ?? token.source_provenance?.pumpfun ?? null;
+  const datasetCreator = datasetLaunch?.creator_candidate ?? datasetLaunch?.creator ?? null;
+  const valueAssessment = assessDigitalValue({
+    datasetRecord: Boolean(datasetLaunch && (datasetLaunch.row_idx != null || datasetLaunch.launch_at || datasetLaunch.created)),
+    datasetFeatures: Boolean(datasetLaunch?.provider_claims || datasetLaunch?.features_basis || datasetLaunch?.f10_bundle_wallets != null),
+    chainLaunchVerified: Boolean(creationHistoryComplete && creatorCandidate?.wallet),
+    transactionCount: Array.isArray(mintSignatures) ? mintSignatures.length : 0,
+    marketSnapshotCount: snapshotCount.count ?? 0,
+    metadataOnchain: Array.isArray(info.extensions) && info.extensions.some((x: any) => ["tokenMetadata", "metadataPointer"].includes(x.extension)),
+    metadataUriStatus: metadataStatus.status,
+    metadataDescriptionAvailable: Boolean(token.source_provenance?.metadata_summary),
+    tokenProgram: mintAccount?.value?.owner ?? "",
+    token2022: mintAccount?.value?.owner === "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    authorityDataAvailable: info.isInitialized === true,
+    rentPotentialLamports: rentRecovery.total_potential_excess_lamports_raw,
+    rentScanComplete: false,
+    identityStatus: identity.data?.identity_status ?? "unverified",
+    authorityStatus: identity.data?.authority_status ?? "unknown",
+    consentStatus: identity.data?.consent_status ?? "not_requested",
+    communityEvidenceCount: Array.isArray(identity.data?.evidence) ? identity.data.evidence.length : 0
+  });
+  const valueEvidenceRefs = [
+    "solana:mint:" + mint,
+    ...(datasetLaunch ? ["huggingface:" + (datasetLaunch.dataset ?? "loopholetape/pumpfun-launches") + ":" + (datasetLaunch.config ?? "launches") + ":" + String(datasetLaunch.row_idx ?? "reference")] : []),
+    ...(mintSignatures?.length ? ["solana:transaction:" + mintSignatures[mintSignatures.length - 1].signature] : [])
+  ];
+  const { error: valueSaveError } = await db.from("mc_value_assessments").insert({
+    mint, assessor_version: valueAssessment.assessorVersion,
+    historical_score: valueAssessment.historicalScore, research_score: valueAssessment.researchScore,
+    cultural_score: valueAssessment.culturalScore, technical_score: valueAssessment.technicalScore,
+    recovery_score: valueAssessment.recoveryScore, community_score: valueAssessment.communityScore,
+    overall_value_band: valueAssessment.overallValueBand, evidence_confidence: valueAssessment.evidenceConfidence,
+    rights_status: valueAssessment.rightsStatus, authority_status: valueAssessment.authorityStatus,
+    consent_status: valueAssessment.consentStatus, evidence_refs: valueEvidenceRefs,
+    findings: { ...valueAssessment.findings, dataset_creator_matches_chain_fee_payer: Boolean(datasetCreator && creatorCandidate?.wallet && datasetCreator === creatorCandidate.wallet), metadata_status: metadataStatus },
+    limitations: valueAssessment.limitations
+  });
+  if (valueSaveError) throw valueSaveError;
   const evidenceManifest = {
     providers: ["Solana JSON-RPC", ...(pump ? ["pumpdata.fun"] : []), ...(Object.keys(jupiter).length ? ["Jupiter Tokens API v2"] : [])],
     mint, observed_at: new Date().toISOString(), mint_authority: info.mintAuthority ?? null,
@@ -225,6 +294,7 @@ async function investigateToken(token: any, endpoint: string) {
     top20_supply_pct: top20SupplyPct, top20_scope: "largest non-pool token accounts grouped by parsed owner; known primary DEX pool address excluded; not a full beneficial-owner distribution",
     rent_recovery: rentRecovery,
     archive_references: archiveReferences,
+    value_assessment: { ...valueAssessment, evidence_refs: valueEvidenceRefs, metadata_status: metadataStatus },
     excluded_primary_pool_account_count: holderDistribution.excludedPoolAccountCount,
     included_non_pool_token_account_count: holderDistribution.includedAccountCount,
     pool_activity_at: poolActivityAt, pair_age_days: pairAgeDays, pool_activity_age_days: poolActivityAgeDays,
