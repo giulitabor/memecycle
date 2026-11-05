@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install project dependencies
+        run: npm install
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
@@ -44,4 +46,4 @@ jobs:
       - name: Check revival function
         run: deno check supabase/functions/memecycle-revival/index.ts
       - name: Test revival queue policy
-        run: deno test supabase/functions/memecycle-revival/queue-policy.test.ts
+        run: deno test supabase/functions/memecycle-revival/queue-policy.deno.ts
