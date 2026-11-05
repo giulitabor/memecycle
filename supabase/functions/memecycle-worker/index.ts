@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,db=createClient(SUPABASE_URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-rules-0.1.0";
+const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,db=createClient(SUPABASE_URL,KEY,{auth:{persistSession:false}}),VERSION="memecycle-rules-0.2.0";
+const PUMP_PROGRAM="6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const SOURCES=[["dexscreener_profiles","https://api.dexscreener.com/token-profiles/latest/v1"],["dexscreener_boosts","https://api.dexscreener.com/token-boosts/latest/v1"],["geckoterminal_trending","https://api.geckoterminal.com/api/v2/networks/solana/trending_pools"]] as const;
 const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const valid=(v:unknown):v is string=>typeof v==="string"&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v),num=(v:unknown):number|null=>v==null||v===""||!Number.isFinite(Number(v))?null:Number(v);
@@ -11,7 +12,7 @@ function analyse(x:any,p:any,providers:string[]){const liq=num(p?.liquidity?.usd
  const complete=(x.name?10:0)+(x.symbol?10:0)+(p?20:0)+(liq!==null?15:0)+(vol!==null?15:0)+(fdv!==null||cap!==null?10:0)+(providers.length>1?10:0)+(p?.url||p?.pairAddress||p?.address?10:0);
  const breakdown={data_quality:Math.round(complete*.30),market_observability:p?10:0,liquidity_signal:liq===null?0:liq>=25000?15:liq>=5000?10:liq>=1000?5:1,age_evidence:age===null?0:age>=365?15:age>=180?10:age>=30?5:1,source_corroboration:providers.length>1?15:providers.length===1?7:0,freshness:p?15:0,not_measured:["community_strength","cultural_significance","ownership_authority","last_on_chain_activity"]};
  const total=Math.min(100,Object.entries(breakdown).filter(([k])=>k!=="not_measured").reduce((s,[,v])=>s+Number(v),0));let label="unverified";if(p&&liq!==null&&liq<1000)label="illiquid";else if(p&&liq!==null&&vol!==null&&liq>=10000&&vol>=10000)label="active";else if(p&&(liq!==null||vol!==null))label="declining";return{liq,vol,fdv,cap,complete,breakdown,total,label};}
-async function discover(limit:number){const {data:run,error:runErr}=await db.from("mc_ingestion_runs").insert({run_type:"discovery",status:"running",source_provider:"dexscreener+geckoterminal+pumpdata+jupiter"}).select("id").single();if(runErr)throw runErr;
+async function discover(limit:number,bitqueryToken?:string){const {data:run,error:runErr}=await db.from("mc_ingestion_runs").insert({run_type:"discovery",status:"running",source_provider:"dexscreener+geckoterminal+pumpdata+jupiter"}).select("id").single();if(runErr)throw runErr;
  const map=new Map<string,C>(),counts:Record<string,number>={},sourceErrors:string[]=[];
  for(const [key,url] of SOURCES){try{const payload:any=await get(url),rows:any[]=key==="geckoterminal_trending"?(payload?.data??[]):(Array.isArray(payload)?payload:[]);counts[key]=rows.length;for(const row of rows){if(key==="geckoterminal_trending"){const base=row.relationships?.base_token?.data?.id??"",mint=String(base).startsWith("solana_")?String(base).slice(7):row.attributes?.base_token_address,c=add(map,mint,key);if(c)c.pools.push({...row.attributes,address:row.attributes?.address,raw:row});}else if(row.chainId==="solana"){const c=add(map,row.tokenAddress,key);if(c)c.image??=row.icon??row.header;}}await db.from("mc_discovery_sources").update({last_success_at:new Date().toISOString(),records_seen:rows.length,last_error:null,updated_at:new Date().toISOString()}).eq("source_key",key);}catch(e){sourceErrors.push(key+": "+String(e).slice(0,180));await db.from("mc_discovery_sources").update({last_error_at:new Date().toISOString(),last_error:String(e).slice(0,500),updated_at:new Date().toISOString()}).eq("source_key",key);}}
  // Pump.fun historical launch feed: one free HTTP request per discovery run, cursor-based; no Solana RPC calls.
@@ -28,6 +29,58 @@ async function discover(limit:number){const {data:run,error:runErr}=await db.fro
    await db.from("mc_discovery_sources").update({last_success_at:new Date().toISOString(),cursor_value:next,records_seen:rows.length,last_error:null,updated_at:new Date().toISOString()}).eq("source_key","pumpfun_launch_history");
   }
  }catch(e){sourceErrors.push("pumpfun_launch_history: "+String(e).slice(0,180));await db.from("mc_discovery_sources").update({last_error_at:new Date().toISOString(),last_error:String(e).slice(0,500),updated_at:new Date().toISOString()}).eq("source_key","pumpfun_launch_history");}
+ // Historical Pump.fun launch sampling via Bitquery archive. One bounded UTC day per run.
+ // Archive access is plan-gated by Bitquery; no paid add-on is purchased or assumed.
+ if(bitqueryToken){
+  try{
+   const sourceKey="pumpfun_bitquery_history",nowSeconds=Math.floor(Date.now()/1000);
+   const {data:src}=await db.from("mc_discovery_sources").select("cursor_value,enabled").eq("source_key",sourceKey).maybeSingle();
+   if(src?.enabled!==false){
+    const cursor=Number(src?.cursor_value)||nowSeconds-365*86400;
+    if(cursor<nowSeconds){
+     const since=new Date(cursor*1000).toISOString(),till=new Date(Math.min(cursor+86400,nowSeconds)*1000).toISOString();
+     const query=`query MemecyclePumpfunHistory {
+      Solana(dataset: archive) {
+       TokenSupplyUpdates(
+        limit: { count: ${Math.max(1,Math.min(limit,100))} }
+        orderBy: { descending: Block_Time }
+        where: {
+         Block: { Time: { since: "${since}", till: "${till}" } }
+         Instruction: { Program: { Address: { is: "${PUMP_PROGRAM}" }, Method: { in: ["create", "create_v2"] } } }
+         Transaction: { Result: { Success: true } }
+        }
+       ) {
+        Block { Time }
+        Transaction { Signer Signature }
+        TokenSupplyUpdate { Currency { MintAddress Name Symbol Uri UpdateAuthority Decimals } PostBalance }
+       }
+      }
+     }`;
+     const r=await fetch("https://streaming.bitquery.io/graphql",{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+bitqueryToken,"user-agent":"MEMECYCLE/0.2"},body:JSON.stringify({query}),signal:AbortSignal.timeout(20000)});
+     if(!r.ok)throw new Error("Bitquery HTTP "+r.status);
+     const payload:any=await r.json();if(payload.errors?.length)throw new Error("Bitquery GraphQL: "+String(payload.errors[0]?.message??"query failed").slice(0,180));
+     const rows:any[]=payload?.data?.Solana?.TokenSupplyUpdates??[],mints=rows.map(row=>row.TokenSupplyUpdate?.Currency?.MintAddress).filter(valid);
+     const {data:old}=mints.length?await db.from("mc_tokens").select("mint,name,symbol,discovery_sources,source_provenance,first_seen_at").in("mint",mints):{data:[]};
+     const prior=new Map((old??[]).map((x:any)=>[x.mint,x]));
+     for(const row of rows){
+      const currency=row.TokenSupplyUpdate?.Currency??{},mint=currency.MintAddress;
+      if(!valid(mint))continue;
+      const prev:any=prior.get(mint)??{},signer=Array.isArray(row.Transaction?.Signer)?row.Transaction.Signer[0]:row.Transaction?.Signer,createdAt=row.Block?.Time??null;
+      const providers=[...new Set([...(prev.discovery_sources??[]),sourceKey])];
+      const launch={provider:"Bitquery Solana archive",program:PUMP_PROGRAM,method:"create/create_v2",creator_candidate:signer??null,signature:row.Transaction?.Signature??null,created_at:createdAt,metadata_uri:currency.Uri??null,update_authority:currency.UpdateAuthority??null,decimals:currency.Decimals??null,supply:row.TokenSupplyUpdate?.PostBalance??null,coverage:"Bounded one-day archive query; result capped at 100 rows per run. This is a sample, not a complete launch census."};
+      const {error:up}=await db.from("mc_tokens").upsert({mint,chain:"solana",name:currency.Name??prev.name??null,symbol:currency.Symbol??prev.symbol??null,metadata_uri:currency.Uri??null,discovery_sources:providers,source_provenance:{...(prev.source_provenance??{}),providers,bitquery_launch:launch},first_seen_at:prev.first_seen_at??new Date().toISOString()},{onConflict:"mint"});
+      if(up)throw up;
+      add(map,mint,sourceKey);
+      const {data:existing}=await db.from("mc_token_events").select("id").eq("mint",mint).eq("event_type","pumpfun_historical_launch").limit(1);
+      if(!existing?.length)await db.from("mc_token_events").insert({mint,event_type:"pumpfun_historical_launch",source:"bitquery.solana.archive",confidence:"provider_reported",event_at:createdAt??new Date().toISOString(),details:launch});
+     }
+     const next=Math.min(cursor+86400,nowSeconds);
+     await db.from("mc_discovery_sources").upsert({source_key:sourceKey,provider:"Bitquery",endpoint:"https://streaming.bitquery.io/graphql (Solana archive)",enabled:true,last_success_at:new Date().toISOString(),records_seen:rows.length,cursor_value:next,last_error:null,updated_at:new Date().toISOString()},{onConflict:"source_key"});
+     counts.pumpfun_bitquery_history=rows.length;counts.pumpfun_history_window={since,till,rows:rows.length,limit:Math.max(1,Math.min(limit,100))};
+    }
+   }
+  }catch(e){sourceErrors.push("pumpfun_bitquery_history: "+String(e).slice(0,180));await db.from("mc_discovery_sources").upsert({source_key:"pumpfun_bitquery_history",provider:"Bitquery",endpoint:"https://streaming.bitquery.io/graphql (Solana archive)",enabled:true,last_error_at:new Date().toISOString(),last_error:String(e).slice(0,500),updated_at:new Date().toISOString()},{onConflict:"source_key"});}
+ }else{counts.pumpfun_bitquery_history=0;counts.pumpfun_bitquery_history_status="BITQUERY_TOKEN not supplied; historical archive backfill paused.";}
  // Jupiter Tokens API: one keyless request per run (0.5 requests/second limit); enriches metadata, organic score and audit flags.
  try{
   const payload:any=await get("https://api.jup.ag/tokens/v2/recent?limit=50"),rows:any[]=Array.isArray(payload)?payload:(payload.data??payload.tokens??[]);
@@ -44,5 +97,5 @@ async function discover(limit:number){const {data:run,error:runErr}=await db.fro
  await db.from("mc_tokens").update({reclamation_score:s.total,score_breakdown:s.breakdown,score_version:VERSION,classified_at:new Date().toISOString(),classification:s.label,lifecycle_status:s.label}).eq("mint",c.mint).not("classification","in",'("historical","community_revival")');
  const {error:ce}=await db.from("mc_classifications").insert({mint:c.mint,classifier_version:VERSION,classification:s.label,score:s.total,explanation:"Rule-based market observability and data-quality assessment; not a valuation or proof of abandonment.",evidence:[{providers},{market:{liquidity_usd:s.liq,volume_24h_usd:s.vol,pair_address:pair}},{limitations:"Dormant/abandoned labels require historical on-chain activity evidence and are not inferred from market data alone."}]});if(!ce)classCount++;if(!c.name)await db.from("mc_data_gaps").upsert({mint:c.mint,field_name:"name",reason:"No verified token name in discovery response"},{onConflict:"mint,field_name,reason"});if(!c.symbol)await db.from("mc_data_gaps").upsert({mint:c.mint,field_name:"symbol",reason:"No verified token symbol in discovery response"},{onConflict:"mint,field_name,reason"});
  }catch(e){errors++;await db.from("mc_audit_events").insert({event_type:"discovery_record_error",actor:"memecycle-worker",subject_ref:c.mint,details:{error:String(e).slice(0,400)}});}}
- const status=errors?(tokenCount?"partial":"failed"):"succeeded",summary={worker_version:VERSION,source_counts:counts,source_errors:sourceErrors,selected:batch.length,privacy:"new records remain private pending evidence-based review",source_limits:"Pump.fun launch feed and Jupiter recent are each one HTTP request per daily discovery run; no additional Solana RPC calls."};await db.from("mc_ingestion_runs").update({status,candidates_seen:map.size,tokens_upserted:tokenCount,snapshots_inserted:snapshotCount,classifications_written:classCount,error_count:errors+sourceErrors.length,summary,finished_at:new Date().toISOString()}).eq("id",run.id);await db.from("mc_audit_events").insert({event_type:"discovery_run_completed",actor:"memecycle-worker",subject_ref:run.id,details:{status,candidates:map.size,tokens:tokenCount,snapshots:snapshotCount,classifications:classCount,errors}});return{run_id:run.id,status,candidates_seen:map.size,tokens_upserted:tokenCount,snapshots_inserted:snapshotCount,classifications_written:classCount,source_errors:sourceErrors};}
-Deno.serve(async req=>{if(req.method!=="POST")return out({error:"POST required"},405);if(!KEY)return out({error:"Worker database credentials are not configured."},503);const auth=req.headers.get("authorization")??"";const token=auth.startsWith("Bearer ")?auth.slice(7):"";let claims:any=null;try{const part=token.split(".")[1];if(part){const normalized=part.replace(/-/g,"+").replace(/_/g,"/");claims=JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,"=")));}}catch{}if(claims?.role!=="service_role")return out({error:"Unauthorized"},401);try{const body=await req.json().catch(()=>({}));if(body.action==="health"){const [t,s,r]=await Promise.all([db.from("mc_tokens").select("mint",{count:"exact",head:true}),db.from("mc_snapshots").select("id",{count:"exact",head:true}),db.from("mc_ingestion_runs").select("id,status,started_at,finished_at").order("started_at",{ascending:false}).limit(5)]);return out({ok:true,version:VERSION,tokens:t.count??0,snapshots:s.count??0,recent_runs:r.data??[]});}if(body.action&&body.action!=="discover"&&body.action!=="run")return out({error:"Unknown action"},400);return out(await discover(Number(body.limit??30)));}catch(e){return out({error:String(e).slice(0,500),version:VERSION},500);}});
+ const status=(errors||sourceErrors.length)?(tokenCount?"partial":"failed"):"succeeded",summary={worker_version:VERSION,source_counts:counts,source_errors:sourceErrors,selected:batch.length,privacy:"new records remain private pending evidence-based review",source_limits:"Pump.fun launch feed and Jupiter recent are each one HTTP request per daily discovery run; no additional Solana RPC calls."};await db.from("mc_ingestion_runs").update({status,candidates_seen:map.size,tokens_upserted:tokenCount,snapshots_inserted:snapshotCount,classifications_written:classCount,error_count:errors+sourceErrors.length,summary,finished_at:new Date().toISOString()}).eq("id",run.id);await db.from("mc_audit_events").insert({event_type:"discovery_run_completed",actor:"memecycle-worker",subject_ref:run.id,details:{status,candidates:map.size,tokens:tokenCount,snapshots:snapshotCount,classifications:classCount,errors}});return{run_id:run.id,status,candidates_seen:map.size,tokens_upserted:tokenCount,snapshots_inserted:snapshotCount,classifications_written:classCount,source_errors:sourceErrors};}
+Deno.serve(async req=>{if(req.method!=="POST")return out({error:"POST required"},405);if(!KEY)return out({error:"Worker database credentials are not configured."},503);const auth=req.headers.get("authorization")??"";const token=auth.startsWith("Bearer ")?auth.slice(7):"";let claims:any=null;try{const part=token.split(".")[1];if(part){const normalized=part.replace(/-/g,"+").replace(/_/g,"/");claims=JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,"=")));}}catch{}if(claims?.role!=="service_role")return out({error:"Unauthorized"},401);try{const body=await req.json().catch(()=>({}));if(body.action==="health"){const [t,s,r]=await Promise.all([db.from("mc_tokens").select("mint",{count:"exact",head:true}),db.from("mc_snapshots").select("id",{count:"exact",head:true}),db.from("mc_ingestion_runs").select("id,status,started_at,finished_at").order("started_at",{ascending:false}).limit(5)]);return out({ok:true,version:VERSION,tokens:t.count??0,snapshots:s.count??0,recent_runs:r.data??[]});}if(body.action&&body.action!=="discover"&&body.action!=="run")return out({error:"Unknown action"},400);return out(await discover(Number(body.limit??30),req.headers.get("x-bitquery-token")??undefined));}catch(e){return out({error:String(e).slice(0,500),version:VERSION},500);}});
