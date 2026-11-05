@@ -131,6 +131,11 @@ STRICT RULES:
 - A low liquidity/volume snapshot is not a trend. Describe trends only when multiple dated observations support them.
 - Jupiter verification/organic score are provider signals, not independent proof.
 - Community submissions are allegations unless corroborated. A verified wallet signature proves submitter control only, not ownership or authority over the token.
+- Treat deterministic reuse-value scores as evidence summaries, not financial valuations or token-price signals.
+- A dataset licence applies to the dataset itself; it does not automatically grant rights to linked artwork, metadata, names or community content.
+- Do not recommend republishing, relicensing, commercializing or reusing third-party media when rights are unknown or restricted.
+- Do not propose a token relaunch, community contact or asset movement unless authority and consent are independently verified.
+- A rent candidate is only a lead. A wallet owner must review and sign any separate transaction; no transaction is authorized by this dossier.
 - Use the exact evidence IDs supplied. Every material finding must cite one or more evidence IDs. Do not invent IDs.
 - If evidence is sparse, say so and lower confidence. No buy/sell recommendations or price predictions.
 - Output valid JSON only, no markdown fences, matching this schema:
