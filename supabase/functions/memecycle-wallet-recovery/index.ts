@@ -106,7 +106,7 @@ async function scanWallet(userId: string, wallet: string) {
       ]);
       for (const entry of result?.value ?? []) accountRows.push({ ...entry, programId });
     } catch (error) {
-      errors.push(programId === TOKEN_PROGRAM ? "Legacy Token Program: " : "Token-2022: " + String(error).slice(0, 180));
+      errors.push((programId === TOKEN_PROGRAM ? "Legacy Token Program: " : "Token-2022: ") + String(error).slice(0, 180));
     }
   }
   if (accountRows.length === 0 && errors.length === 2) {
