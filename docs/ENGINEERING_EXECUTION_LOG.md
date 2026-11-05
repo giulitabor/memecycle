@@ -185,3 +185,11 @@ Started: 2026-11-05 (Europe/Rome)
 - The one-time pipeline verification cron is scheduled for 20:00 UTC on 2026-11-05. At the latest database/log check, no discovery, monitor or revival run had yet been recorded for that window. Vercel Hobby cron timing is hourly (the invocation may occur any time from 20:00 through 20:59 UTC); do not mark end-to-end verification complete until database rows and worker logs confirm all stages.
 - Supabase security advisor currently reports one warning: leaked-password protection is disabled. No auth policy was changed as part of this milestone.
 - No production token was made public, no outreach was sent, and no wallet action or relaunch was performed.
+
+
+### Historical archive prioritisation — 2026-11-05
+- Discovery worker v12 now reserves up to 15 of the 30 daily processed candidates for the Bitquery historical-launch source, then up to 10 PumpData launch-history candidates, with remaining capacity for other discovery sources. This ensures historical records receive market snapshots instead of being left as metadata-only rows.
+- Revival worker v4 derives a research priority timestamp from Bitquery launch provenance or PumpData creation metadata, falling back to platform first-seen time. Unassessed historic launches are now investigated before newer tokens that were merely ingested earlier.
+- Added a seventh Deno regression test proving that actual historical launch time outranks recent ingestion time.
+- Latest verified CI run: 12 application tests passed, 7 Deno queue tests passed, Edge Function type checks passed, production build passed, npm audit reported zero vulnerabilities.
+- Supabase Edge Functions are active at worker v12, monitor v14 and revival v4.
