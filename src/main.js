@@ -8,7 +8,7 @@ const env = import.meta.env;
 const configured = Boolean(env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY);
 const db = configured ? createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY) : null;
 
-if (window.location.pathname.replace(/\\/$/, '') === '/admin') {
+if ((window.location.pathname === '/admin' || window.location.pathname === '/admin/')) {
   initAdminConsole(db);
 } else {
 const icons = {
