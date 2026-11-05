@@ -42,8 +42,8 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check monitor function
-        run: deno check supabase/functions/memecycle-monitor/index.ts
+        run: deno --node-modules-dir=auto check supabase/functions/memecycle-monitor/index.ts
       - name: Check revival function
-        run: deno check supabase/functions/memecycle-revival/index.ts
+        run: deno --node-modules-dir=auto check supabase/functions/memecycle-revival/index.ts
       - name: Test revival queue policy
-        run: deno test supabase/functions/memecycle-revival/queue-policy.deno.ts
+        run: deno --node-modules-dir=auto test supabase/functions/memecycle-revival/queue-policy.deno.ts
