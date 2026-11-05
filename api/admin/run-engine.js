@@ -21,7 +21,7 @@ export default async function handler(req,res){
  try{
   const body=action==="archive_backfill"?{action:"archive_backfill",pages_per_config:5}:{action:action==="discover"?"discover":"monitor",limit:action==="discover"?30:10,backfill_limit:2};
   if(action==="monitor"&&process.env.HELIUS_RPC)body.rpc_url=process.env.HELIUS_RPC;
-  const response=await fetch(`${(url.endsWith('/')?url.slice(0,-1):url)}/functions/v1/memecycle-${action==="discover"?"worker":"monitor"}`,{
+  const response=await fetch(`${(url.endsWith('/')?url.slice(0,-1):url)}/functions/v1/memecycle-${(action==="discover"||action==="archive_backfill")?"worker":"monitor"}`,{
    method:"POST",headers:{"content-type":"application/json","authorization":`Bearer ${service}`,"apikey":service},
    body:JSON.stringify(body),signal:AbortSignal.timeout(55000)
   });
