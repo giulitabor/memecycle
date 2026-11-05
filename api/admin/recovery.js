@@ -108,8 +108,10 @@ export default async function handler(req,res){
    const evidence=body.evidence===undefined?(current?.evidence||[]):cleanUrls(body.evidence,20);
    const authority=authorityStatus||current?.authority_status||"unknown";
    const consent=consentStatus||current?.consent_status||"not_requested";
-   if(!canAttestAuthority(authority,evidence,body.human_review_confirmed))return json(res,400,{error:"Independent authority requires two distinct HTTPS evidence sources and explicit human-review confirmation."});
-   if(!canAttestConsent(consent,authority,evidence,body.consent_review_confirmed))return json(res,400,{error:"Granted consent requires independently verified authority, explicit-consent evidence and human confirmation."});
+   const authorityConfirmed=current?.authority_status===authority||body.human_review_confirmed===true;
+   const consentConfirmed=current?.consent_status===consent||body.consent_review_confirmed===true;
+   if(!canAttestAuthority(authority,evidence,authorityConfirmed))return json(res,400,{error:"Independent authority requires two distinct HTTPS evidence sources and explicit human-review confirmation."});
+   if(!canAttestConsent(consent,authority,evidence,consentConfirmed))return json(res,400,{error:"Granted consent requires independently verified authority, explicit-consent evidence and human confirmation."});
    const {data:saved,error}=await db.from("mc_project_identities").upsert({
     mint,project_name:body.project_name===undefined?(current?.project_name??null):trim(body.project_name,180)||null,
     website_url:body.website_url===undefined?(current?.website_url??null):cleanUrls([{url:body.website_url,type:"website"}],1)[0]?.url??null,
