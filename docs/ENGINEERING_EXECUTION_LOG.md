@@ -231,3 +231,11 @@ Started: 2026-11-05 (Europe/Rome)
 - Historical archive blocker confirmed: Bitquery's documented Solana archive dataset requires an archive add-on; the configured token receives HTTP 403. No paid plan or add-on was purchased. See https://docs.bitquery.io/docs/blockchain/Solana/Pumpfun/Pump-Fun-API/.
 - Current candidate archive remains very young: oldest persisted discovery records begin 2 November 2026. This is not enough historical depth to validate actual abandoned-project recovery. Keep this milestone open until a permitted historical source supplies older launches and the monitor/revival workers have processed a representative batch.
 - No live public archive record, outreach, relaunch, token transfer, or wallet action was performed.
+
+
+### Historical source investigation — 2026-11-05
+- Confirmed the production Bitquery archive request returned HTTP 403 while the cron runtime confirmed a token is configured. Bitquery documentation says the Solana archive dataset requires an archive add-on; exact cause of this specific 403 remains unconfirmed. No paid plan/add-on was purchased.
+- Identified a public Hugging Face dataset, `loopholetape/pumpfun-launches`, under CC BY 4.0, with approximately 2.42 million launch records from 2026-08-31 through 2026-10-29. Its fields include mint, creator and launch time.
+- Reviewed its known issues: single-recorder coverage gaps, pre-2026-09-27 decoder undercount, non-random early-feature sampling, and a `rugged` label that is a dataset rule rather than proof of fraud or abandonment.
+- Reviewed Hugging Face Dataset Viewer documentation for bounded `/filter` requests (100 rows max) and pagination.
+- Source review is documented in `docs/HISTORICAL_ARCHIVE_SOURCE_REVIEW.md`. The dataset is not integrated yet: endpoint access, `partial=false`, pagination and sample chain verification must pass first.
