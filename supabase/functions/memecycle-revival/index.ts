@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { scoreRevival } from "./scoring.js";
+import { nextAttemptNumber, selectRevivalBatch } from "./queue-policy.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -212,13 +213,6 @@ async function run(limit: number, suppliedRpc: string | null) {
     .select("mint,name,symbol,primary_pair_address,liquidity_usd,volume_24h_usd,holder_count,source_provenance,first_seen_at")
     .order("first_seen_at", { ascending: true }).limit(500);
   if (tokenError) throw tokenError;
-  // Keep an initial assessment pass moving across the whole archive. A 7-day
-  // cooldown combined with first_seen_at ordering would repeatedly select the
-  // first three mints after day seven and starve every later token.
-  const assessmentCooldownMs = 90 * 86400000;
-  const retryBackoffMs = 6 * 60 * 60 * 1000;
-  const staleLockMs = 20 * 60 * 1000;
-  const nowMs = Date.now();
   const [{ data: assessments, error: assessmentReadError }, { data: jobs, error: jobReadError }] = await Promise.all([
     db.from("mc_revival_assessments").select("mint,assessed_at").order("assessed_at", { ascending: false }).limit(5000),
     db.from("mc_research_jobs").select("mint,status,attempts,max_attempts,updated_at,locked_at,available_at")
@@ -227,40 +221,14 @@ async function run(limit: number, suppliedRpc: string | null) {
   if (assessmentReadError) throw assessmentReadError;
   if (jobReadError) throw jobReadError;
 
-  const latestAssessmentByMint = new Map<string, any>();
-  for (const row of assessments || []) if (row.mint && !latestAssessmentByMint.has(row.mint)) latestAssessmentByMint.set(row.mint, row);
-  const latestJobByMint = new Map<string, any>();
-  for (const row of jobs || []) if (row.mint && !latestJobByMint.has(row.mint)) latestJobByMint.set(row.mint, row);
-
-  const eligible = (tokens || []).filter((row: any) => {
-    if (!validMint(row.mint)) return false;
-    const assessed = latestAssessmentByMint.get(row.mint);
-    if (assessed && nowMs - Date.parse(assessed.assessed_at) < assessmentCooldownMs) return false;
-
-    const job = latestJobByMint.get(row.mint);
-    if (!job) return true;
-    const attempts = Number(job.attempts || 0);
-    const maxAttempts = Number(job.max_attempts || 3);
-    if (attempts >= maxAttempts || job.status === "succeeded" || job.status === "cancelled") return false;
-
-    if (job.status === "partial" || job.status === "failed") {
-      return nowMs - Date.parse(job.updated_at) >= retryBackoffMs;
-    }
-    if (job.status === "running") {
-      return !job.locked_at || nowMs - Date.parse(job.locked_at) >= staleLockMs;
-    }
-    if (job.status === "queued") {
-      return !job.available_at || Date.parse(job.available_at) <= nowMs;
-    }
-    return false;
+  const { batch, latestJobByMint } = selectRevivalBatch({
+    tokens: tokens || [], assessments: assessments || [], jobs: jobs || [], nowMs: Date.now(), limit
   });
-
-  const batch = eligible.slice(0, Math.max(1, Math.min(limit, 3)));
   const results: any[] = [];
   const errors: any[] = [];
   for (const token of batch) {
     const priorJob = latestJobByMint.get(token.mint);
-    const attemptNumber = priorJob ? Number(priorJob.attempts || 0) + 1 : 1;
+    const attemptNumber = nextAttemptNumber(priorJob);
     const { data: job, error: jobError } = await db.from("mc_research_jobs").insert({
       mint: token.mint, job_type: "onchain_investigation", status: "running", priority: 60,
       attempts: attemptNumber, max_attempts: 3, locked_at: new Date().toISOString(), locked_by: VERSION
