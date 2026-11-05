@@ -96,8 +96,8 @@ async function investigateToken(token: any, endpoint: string) {
   // Compare observed lamports with the cluster's current rent floor. The RPC
   // sample is intentionally bounded to the mint and largest token accounts.
   const rentSizes = [...new Set([
-    mintAccount?.value?.space,
-    ...accountRows.map((row: any) => row.account?.space)
+    mintAccount?.value?.space ?? mintAccount?.value?.data?.space,
+    ...accountRows.map((row: any) => row.account?.space ?? row.account?.data?.space)
   ].map(Number).filter((space) => Number.isSafeInteger(space) && space >= 0))];
   const rentPairs: Array<[string, string]> = await Promise.all(rentSizes.map(async (space) => {
     try {
