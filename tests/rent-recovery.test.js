@@ -5,7 +5,7 @@ import { assessRentRecovery } from "../supabase/functions/memecycle-revival/rent
 test("reports only lamports above the current rent floor", () => {
   const result = assessRentRecovery({
     mintAddress: "Mint",
-    mintAccount: { value: { lamports: 2_000_000, space: 82, owner: "TokenProgram" } },
+    mintAccount: { value: { lamports: 2_000_000, space: 82, owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", data: { parsed: { info: { mintAuthority: "Authority" } } } } },
     rentMinimumBySpace: { "82": "1000000", "165": "2000000" }
   });
   assert.equal(result.mint.potential_excess_lamports_raw, "1000000");
