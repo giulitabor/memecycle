@@ -78,3 +78,7 @@ Database migrations live in `supabase/migrations/`. Edge Function source lives i
 ## Operator controls
 - Administrators can trigger discovery and monitoring immediately from the Archive administration workspace. The server verifies the Supabase Auth user's trusted `app_metadata.role=admin` claim; service-role credentials remain server-side.
 - Manual runs are rate-limited to one per run type every five minutes. Manual monitoring checks up to 10 records and backfills at most two pools to stay within serverless execution limits. Scheduled monitoring retains its larger daily batch.
+
+## Free organic launch
+
+The launch does not depend on Metricool or a paid scheduler. Use native free publishing on existing social accounts, with no paid ads or boosts. The channel strategy, profile copy, seven ready-to-post messages, manual publishing checklist, measurement plan and spending guardrails are in [marketing/ORGANIC_LAUNCH_PLAN.md](marketing/ORGANIC_LAUNCH_PLAN.md).
