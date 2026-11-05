@@ -169,4 +169,5 @@ document.querySelector('#contribute-form').addEventListener('submit',async e=>{
 loadTokens();
 initArchiveExperience(db);
 initAccountExperience(db);
+initWalletRecovery(db);
 }
