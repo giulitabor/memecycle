@@ -3,7 +3,7 @@ const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 function uint(value) {
   if (typeof value === "number" && !Number.isSafeInteger(value)) return null;
   const raw = String(value ?? "");
-  return /^\\d+$/.test(raw) ? BigInt(raw) : null;
+  return /^\d+$/.test(raw) ? BigInt(raw) : null;
 }
 
 export function assessWalletTokenAccounts(entries = [], rentMinimumBySpace = {}, walletAddress) {
