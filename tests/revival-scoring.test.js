@@ -48,3 +48,10 @@ test("suspicious provider signal increases risk and lowers viability", () => {
   assert.ok(risky.riskScore > clean.riskScore);
   assert.ok(risky.viabilityScore < clean.viabilityScore);
 });
+
+test("sparse evidence cannot produce an overconfident viability or risk score", () => {
+  const result = scoreRevival({ mintAuthorityActive: false });
+  assert.equal(result.viabilityScore, null);
+  assert.equal(result.riskScore, null);
+  assert.equal(result.authorityScore, null);
+});
