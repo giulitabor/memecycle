@@ -6,6 +6,7 @@ const SOURCES=[["dexscreener_profiles","https://api.dexscreener.com/token-profil
 const out=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store"}});
 const valid=(v:unknown):v is string=>typeof v==="string"&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v),num=(v:unknown):number|null=>v==null||v===""||!Number.isFinite(Number(v))?null:Number(v);
 async function get(url:string){const r=await fetch(url,{headers:{accept:"application/json","user-agent":"MEMECYCLE/0.1"},signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error(`${r.status} ${new URL(url).hostname}`);return await r.json();}
+async function getHuggingFace(url:string){const r=await fetch(url,{headers:{accept:"application/json","user-agent":"MEMECYCLE/0.3"},signal:AbortSignal.timeout(8000)});if(!r.ok)throw new Error(`Hugging Face HTTP ${r.status}`);return await r.json();}
 type C={mint:string;name?:string;symbol?:string;image?:string;creator?:string;launchAt?:string;pumpfun?:any;jupiter?:any;sources:Set<string>;pools:any[]};
 function add(m:Map<string,C>,mint:string,source:string){if(!valid(mint))return null;let c=m.get(mint);if(!c){c={mint,sources:new Set(),pools:[]};m.set(mint,c);}c.sources.add(source);return c;}
 function analyse(x:any,p:any,providers:string[]){const liq=num(p?.liquidity?.usd??p?.reserve_in_usd),vol=num(p?.volume?.h24??p?.volume_usd?.h24),fdv=num(p?.fdv??p?.fdv_usd),cap=num(p?.marketCap??p?.market_cap_usd),created=p?.pairCreatedAt?Number(p.pairCreatedAt):p?.pool_created_at?Date.parse(p.pool_created_at):null,age=created&&Number.isFinite(created)?Math.max(0,(Date.now()-created)/86400000):null;
@@ -108,12 +109,18 @@ async function backfillHuggingFace(pagesPerConfig:number){
  const runResult=await db.from("mc_ingestion_runs").insert({run_type:"backfill",status:"running",source_provider:"huggingface:loopholetape/pumpfun-launches"}).select("id").single();
  if(runResult.error)throw runResult.error;
  const runId=runResult.data.id,dataset="loopholetape/pumpfun-launches";
- const datasetInfo:any=await get("https://huggingface.co/api/datasets/"+dataset);
- const datasetSize:any=await get("https://datasets-server.huggingface.co/size?dataset=loopholetape%2Fpumpfun-launches");
- const revision=String(datasetInfo.sha??"");
- if(!/^[a-f0-9]{40}$/.test(revision))throw new Error("Hugging Face did not return a valid dataset revision.");
- if(String(datasetInfo.cardData?.license??"").toLowerCase()!=="cc-by-4.0")throw new Error("Unexpected dataset licence; archive ingestion stopped for rights review.");
- const totals=new Map<string,number>((datasetSize.size?.splits??[]).map((x:any)=>[x.config,Number(x.num_rows)||0]));
+ let datasetInfo:any,datasetSize:any,revision="",totals:Map<string,number>;
+ try{
+  datasetInfo=await getHuggingFace("https://huggingface.co/api/datasets/"+dataset);
+  datasetSize=await getHuggingFace("https://datasets-server.huggingface.co/size?dataset=loopholetape%2Fpumpfun-launches");
+  revision=String(datasetInfo.sha??"");
+  if(!/^[a-f0-9]{40}$/.test(revision))throw new Error("Hugging Face did not return a valid dataset revision.");
+  if(String(datasetInfo.cardData?.license??"").toLowerCase()!=="cc-by-4.0")throw new Error("Unexpected dataset licence; archive ingestion stopped for rights review.");
+  totals=new Map<string,number>((datasetSize.size?.splits??[]).map((x:any)=>[x.config,Number(x.num_rows)||0]));
+ }catch(error){
+  await db.from("mc_ingestion_runs").update({status:"failed",error_count:1,summary:{dataset,error:String(error).slice(0,400)},finished_at:new Date().toISOString()}).eq("id",runId);
+  throw error;
+ }
  const configs=["launches_legacy","launches"],keys=configs.map(config=>({source_key:"hf_pumpfun_"+config,provider:"huggingface",endpoint:"https://datasets-server.huggingface.co/rows",enabled:true,cursor_value:0,records_seen:0}));
  const {error:seedError}=await db.from("mc_discovery_sources").upsert(keys,{onConflict:"source_key",ignoreDuplicates:true});if(seedError)throw seedError;
  const {data:sourceRows,error:sourceError}=await db.from("mc_discovery_sources").select("source_key,enabled,cursor_value,records_seen").in("source_key",keys.map(x=>x.source_key));if(sourceError)throw sourceError;
@@ -134,7 +141,7 @@ async function backfillHuggingFace(pagesPerConfig:number){
    const pageIndex=cursor,offset=Math.floor(pageIndex*total/100),url=new URL("https://datasets-server.huggingface.co/rows");
    url.searchParams.set("dataset",dataset);url.searchParams.set("config",config);url.searchParams.set("split","train");url.searchParams.set("offset",String(offset));url.searchParams.set("length","100");
    try{
-    const payload:any=await get(url.toString()),rows:any[]=Array.isArray(payload.rows)?payload.rows:[];
+    const payload:any=await getHuggingFace(url.toString()),rows:any[]=Array.isArray(payload.rows)?payload.rows:[];
     if(payload.error)throw new Error(String(payload.error).slice(0,200));
     if(!rows.length)throw new Error("Dataset Viewer returned an empty page before the expected sample range.");
     const unique=new Map<string,any>();
@@ -166,7 +173,16 @@ async function backfillHuggingFace(pagesPerConfig:number){
    }
   }
  }
- const status=errorCount?(totalRows?"partial":"failed"):"succeeded";
+ let revisionChanged=false;
+ try{
+  const latest:any=await getHuggingFace("https://huggingface.co/api/datasets/"+dataset);
+  revisionChanged=String(latest.sha??"")!==revision;
+ }catch(error){summary.revision_recheck_error=String(error).slice(0,200);}
+ if(revisionChanged){
+  summary.revision_changed_during_run=true;
+  for(const config of configs)await db.from("mc_archive_references").update({retrieval_status:"stale",coverage_notes:"Dataset revision changed during this sampling run; re-fetch before relying on the row. "+summary.limitations.join(" ")}).eq("source_id","huggingface:"+dataset).eq("source_revision",revision).gte("observed_at",new Date(Date.now()-15*60_000).toISOString());
+ }
+ const status=errorCount?(totalRows?"partial":"failed"):revisionChanged?"partial":"succeeded";
  summary.total_rows_sampled=totalRows;summary.unique_tokens_upserted=totalTokens;summary.reference_rows_upserted=totalRefs;summary.error_count=errorCount;
  summary.page_policy="Up to 5 pages per configuration per run; each page is at most 100 rows; cursor advances through 100 evenly spaced strata.";
  await db.from("mc_ingestion_runs").update({status,candidates_seen:totalRows,tokens_upserted:totalTokens,snapshots_inserted:0,classifications_written:0,error_count:errorCount,summary,finished_at:new Date().toISOString()}).eq("id",runId);
