@@ -114,3 +114,13 @@ Started: 2026-11-05 (Europe/Rome)
 - Extended the admin recovery API with a ranked opportunity queue backed by versioned revival assessments, token metadata and identity/case status.
 - Extended `/admin` with a ranked candidate list, one-click internal case creation linked to the assessment, public contact-channel evidence entry, consent-gated recovery plan/risk-register editing, and case history notes.
 - This remains an internal research console. It does not publish candidate records, send outreach, or execute blockchain operations.
+
+### Production release — 2026-11-05
+- Pull request #2 merged to `main`: https://github.com/giulitabor/memecycle/pull/2
+- Merge commit: `337cbf9cd4d28088095d6cfd0fd002597af659ae`.
+- Vercel production deployment: `dpl_978u6zVs1wbLY7dr4WtvUccjYPP2`, state READY, commit matches merge commit.
+- Explicitly assigned `memecycle.vercel.app` to the new production deployment; deployment alias read-back confirmed `aliasError: null`.
+- Vercel production runtime error scan (last hour) returned no runtime error clusters.
+- Supabase read-back confirms `memecycle-worker` v11 ACTIVE, `memecycle-monitor` v12 ACTIVE, and `memecycle-revival` v1 ACTIVE.
+- Supabase security advisor now reports only the leaked-password-protection warning. Explicit client-deny RLS policies are present on all eight internal research/recovery tables.
+- Important: production deployment/build success is not an end-to-end worker test. The database still has no monitor, on-chain investigation, revival assessment, research-job or recovery-case run recorded. The next scheduled executions and first admin-authenticated test remain release verification tasks.
